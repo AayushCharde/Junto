@@ -10,7 +10,9 @@
 			workspaceId: data.workspace?.id ?? null,
 			workspaceName: data.workspace?.name ?? 'Workspace',
 			projects: data.projects,
-			tasks: data.tasks
+			tasks: data.tasks,
+			labels: data.labels,
+			taskLabels: data.taskLabels
 		})
 	);
 

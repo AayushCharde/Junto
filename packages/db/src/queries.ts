@@ -8,10 +8,20 @@
  */
 
 import { and, asc, eq } from 'drizzle-orm';
-import type { CreateProjectInput, CreateTaskInput, UpdateTaskInput } from '@junto/core';
+import type {
+	CreateLabelInput,
+	CreateProjectInput,
+	CreateTaskInput,
+	UpdateTaskInput
+} from '@junto/core';
 import type { Database } from './client';
-import { profiles, projects, tasks, workspaces } from './schema';
-import type { Project, Task, Workspace } from './schema';
+import { labels, profiles, projects, taskLabels, tasks, workspaces } from './schema';
+import type { Label, Project, Task, Workspace } from './schema';
+
+export interface TaskLabelLink {
+	taskId: string;
+	labelId: string;
+}
 
 export async function getDefaultWorkspace(db: Database): Promise<Workspace | null> {
 	const [ws] = await db
@@ -160,6 +170,8 @@ export async function createTask(db: Database, input: CreateTaskInput): Promise<
 			description: input.description,
 			status: input.status ?? 'backlog',
 			priority: input.priority ?? 'none',
+			dueDate: input.dueDate ?? null,
+			parentTaskId: input.parentTaskId ?? null,
 			// Monotonic default so new tasks land at the bottom of their column.
 			sortOrder: input.sortOrder ?? Date.now()
 		})
@@ -179,6 +191,7 @@ export async function updateTask(
 			...(patch.description !== undefined ? { description: patch.description } : {}),
 			...(patch.status !== undefined ? { status: patch.status } : {}),
 			...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+			...(patch.dueDate !== undefined ? { dueDate: patch.dueDate } : {}),
 			...(patch.sortOrder !== undefined ? { sortOrder: patch.sortOrder } : {}),
 			updatedAt: new Date()
 		})
@@ -189,4 +202,72 @@ export async function updateTask(
 
 export async function deleteTask(db: Database, id: string): Promise<void> {
 	await db.delete(tasks).where(eq(tasks.id, id));
+}
+
+// ── Labels ──────────────────────────────────────────────────────────────────
+
+export async function listLabels(db: Database, workspaceId: string): Promise<Label[]> {
+	return db
+		.select()
+		.from(labels)
+		.where(eq(labels.workspaceId, workspaceId))
+		.orderBy(asc(labels.name));
+}
+
+/** Every task→label link within a workspace (for hydrating the client). */
+export async function listTaskLabels(
+	db: Database,
+	workspaceId: string
+): Promise<TaskLabelLink[]> {
+	return db
+		.select({ taskId: taskLabels.taskId, labelId: taskLabels.labelId })
+		.from(taskLabels)
+		.innerJoin(tasks, eq(taskLabels.taskId, tasks.id))
+		.innerJoin(projects, eq(tasks.projectId, projects.id))
+		.where(eq(projects.workspaceId, workspaceId));
+}
+
+export async function createLabel(db: Database, input: CreateLabelInput): Promise<Label> {
+	const [row] = await db
+		.insert(labels)
+		.values({
+			id: input.id,
+			workspaceId: input.workspaceId,
+			name: input.name,
+			color: input.color
+		})
+		.returning();
+	return row!;
+}
+
+export async function deleteLabel(db: Database, id: string): Promise<void> {
+	await db.delete(labels).where(eq(labels.id, id));
+}
+
+export async function addTaskLabel(db: Database, taskId: string, labelId: string): Promise<void> {
+	await db.insert(taskLabels).values({ taskId, labelId }).onConflictDoNothing();
+}
+
+export async function removeTaskLabel(
+	db: Database,
+	taskId: string,
+	labelId: string
+): Promise<void> {
+	await db
+		.delete(taskLabels)
+		.where(and(eq(taskLabels.taskId, taskId), eq(taskLabels.labelId, labelId)));
+}
+
+export async function userOwnsLabel(
+	db: Database,
+	userId: string,
+	labelId: string
+): Promise<boolean> {
+	const [row] = await db
+		.select({ id: labels.id })
+		.from(labels)
+		.innerJoin(workspaces, eq(labels.workspaceId, workspaces.id))
+		.where(and(eq(labels.id, labelId), eq(workspaces.ownerId, userId)))
+		.limit(1);
+	return Boolean(row);
 }
