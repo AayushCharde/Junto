@@ -2,8 +2,12 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { getTracker } from '$lib/state/tracker.svelte';
+	import PaletteToggle from '$lib/components/palette-toggle.svelte';
 	import House from '@lucide/svelte/icons/house';
+	import LogOut from '@lucide/svelte/icons/log-out';
 	import Plus from '@lucide/svelte/icons/plus';
+
+	let { userEmail = null }: { userEmail?: string | null } = $props();
 
 	const store = getTracker();
 
@@ -96,4 +100,22 @@
 			<p class="text-muted-foreground px-2 py-2 text-xs">No projects yet.</p>
 		{/if}
 	</nav>
+
+	<div class="border-border flex items-center gap-2 border-t p-2">
+		<PaletteToggle />
+		{#if userEmail}
+			<span class="text-muted-foreground min-w-0 flex-1 truncate px-1 text-xs" title={userEmail}>
+				{userEmail}
+			</span>
+			<form method="POST" action="/auth/signout">
+				<button
+					class="text-muted-foreground hover:text-foreground rounded p-1.5"
+					aria-label="Sign out"
+					title="Sign out"
+				>
+					<LogOut class="size-4" />
+				</button>
+			</form>
+		{/if}
+	</div>
 </aside>
