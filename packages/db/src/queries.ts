@@ -7,10 +7,10 @@
  * default workspace.
  */
 
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { CreateProjectInput, CreateTaskInput, UpdateTaskInput } from '@junto/core';
 import type { Database } from './client';
-import { projects, tasks, workspaces } from './schema';
+import { profiles, projects, tasks, workspaces } from './schema';
 import type { Project, Task, Workspace } from './schema';
 
 export async function getDefaultWorkspace(db: Database): Promise<Workspace | null> {
@@ -20,6 +20,100 @@ export async function getDefaultWorkspace(db: Database): Promise<Workspace | nul
 		.orderBy(asc(workspaces.createdAt))
 		.limit(1);
 	return ws ?? null;
+}
+
+/** The (oldest) workspace owned by a specific user. */
+export async function getWorkspaceForUser(
+	db: Database,
+	userId: string
+): Promise<Workspace | null> {
+	const [ws] = await db
+		.select()
+		.from(workspaces)
+		.where(eq(workspaces.ownerId, userId))
+		.orderBy(asc(workspaces.createdAt))
+		.limit(1);
+	return ws ?? null;
+}
+
+/** Idempotently create the profile row for an auth user. */
+export async function ensureProfile(
+	db: Database,
+	userId: string,
+	displayName: string | null
+): Promise<void> {
+	await db
+		.insert(profiles)
+		.values({ id: userId, displayName })
+		.onConflictDoNothing({ target: profiles.id });
+}
+
+/** Reassign every workspace owned by `fromUserId` to `toUserId`. Returns count. */
+export async function reassignWorkspaces(
+	db: Database,
+	fromUserId: string,
+	toUserId: string
+): Promise<number> {
+	const rows = await db
+		.update(workspaces)
+		.set({ ownerId: toUserId })
+		.where(eq(workspaces.ownerId, fromUserId))
+		.returning({ id: workspaces.id });
+	return rows.length;
+}
+
+/** Fresh workspace + default Inbox project for a brand-new user. */
+export async function createWorkspaceWithInbox(
+	db: Database,
+	userId: string,
+	name = 'Personal'
+): Promise<Workspace> {
+	const [ws] = await db.insert(workspaces).values({ ownerId: userId, name }).returning();
+	await db.insert(projects).values({ workspaceId: ws!.id, name: 'Inbox', color: '#6366f1' });
+	return ws!;
+}
+
+/** Manual ownership scoping (Drizzle bypasses RLS). */
+export async function userOwnsWorkspace(
+	db: Database,
+	userId: string,
+	workspaceId: string
+): Promise<boolean> {
+	const [row] = await db
+		.select({ id: workspaces.id })
+		.from(workspaces)
+		.where(and(eq(workspaces.id, workspaceId), eq(workspaces.ownerId, userId)))
+		.limit(1);
+	return Boolean(row);
+}
+
+export async function userOwnsProject(
+	db: Database,
+	userId: string,
+	projectId: string
+): Promise<boolean> {
+	const [row] = await db
+		.select({ id: projects.id })
+		.from(projects)
+		.innerJoin(workspaces, eq(projects.workspaceId, workspaces.id))
+		.where(and(eq(projects.id, projectId), eq(workspaces.ownerId, userId)))
+		.limit(1);
+	return Boolean(row);
+}
+
+export async function userOwnsTask(
+	db: Database,
+	userId: string,
+	taskId: string
+): Promise<boolean> {
+	const [row] = await db
+		.select({ id: tasks.id })
+		.from(tasks)
+		.innerJoin(projects, eq(tasks.projectId, projects.id))
+		.innerJoin(workspaces, eq(projects.workspaceId, workspaces.id))
+		.where(and(eq(tasks.id, taskId), eq(workspaces.ownerId, userId)))
+		.limit(1);
+	return Boolean(row);
 }
 
 export async function listProjects(db: Database, workspaceId: string): Promise<Project[]> {
