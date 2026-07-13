@@ -9,6 +9,9 @@ import { TASK_PRIORITIES, TASK_STATUSES } from './enums';
 export const taskStatusSchema = z.enum(TASK_STATUSES);
 export const taskPrioritySchema = z.enum(TASK_PRIORITIES);
 
+/** Calendar date, YYYY-MM-DD. */
+const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD');
+
 export const createProjectSchema = z.object({
 	// Client may supply the id so optimistic UI + Realtime reconcile cleanly.
 	id: z.string().uuid().optional(),
@@ -25,6 +28,8 @@ export const createTaskSchema = z.object({
 	description: z.string().max(10000).optional(),
 	status: taskStatusSchema.optional(),
 	priority: taskPrioritySchema.optional(),
+	dueDate: dateSchema.nullable().optional(),
+	parentTaskId: z.string().uuid().nullable().optional(),
 	sortOrder: z.number().finite().optional()
 });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
@@ -35,6 +40,7 @@ export const updateTaskSchema = z
 		description: z.string().max(10000).nullable(),
 		status: taskStatusSchema,
 		priority: taskPrioritySchema,
+		dueDate: dateSchema.nullable(),
 		sortOrder: z.number().finite()
 	})
 	.partial()
@@ -42,3 +48,16 @@ export const updateTaskSchema = z
 		message: 'At least one field must be provided'
 	});
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+
+export const createLabelSchema = z.object({
+	id: z.string().uuid().optional(),
+	workspaceId: z.string().uuid(),
+	name: z.string().trim().min(1).max(60),
+	color: z.string().trim().max(32).optional()
+});
+export type CreateLabelInput = z.infer<typeof createLabelSchema>;
+
+export const taskLabelSchema = z.object({
+	labelId: z.string().uuid()
+});
+export type TaskLabelInput = z.infer<typeof taskLabelSchema>;
