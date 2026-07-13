@@ -11,6 +11,8 @@
 
 	const store = getTracker();
 
+	const initials = $derived((userEmail ?? '?').slice(0, 2).toUpperCase());
+
 	let addingProject = $state(false);
 	let newProjectName = $state('');
 
@@ -64,6 +66,7 @@
 		</div>
 
 		{#each store.projects as project (project.id)}
+			{@const active = store.projectStats(project.id).active}
 			<a
 				href={`/projects/${project.id}`}
 				class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors
@@ -75,7 +78,10 @@
 					class="size-2.5 shrink-0 rounded-full"
 					style={`background:${project.color ?? '#71717a'}`}
 				></span>
-				<span class="truncate">{project.name}</span>
+				<span class="min-w-0 flex-1 truncate">{project.name}</span>
+				{#if active > 0}
+					<span class="text-muted-foreground/80 shrink-0 text-xs tabular-nums">{active}</span>
+				{/if}
 			</a>
 		{/each}
 
@@ -101,21 +107,31 @@
 		{/if}
 	</nav>
 
-	<div class="border-border flex items-center gap-2 border-t p-2">
-		<PaletteToggle />
+	<div class="border-border space-y-2 border-t p-2">
+		<div class="flex items-center justify-between px-1">
+			<span class="text-muted-foreground text-xs font-medium">Theme</span>
+			<PaletteToggle />
+		</div>
 		{#if userEmail}
-			<span class="text-muted-foreground min-w-0 flex-1 truncate px-1 text-xs" title={userEmail}>
-				{userEmail}
-			</span>
-			<form method="POST" action="/auth/signout">
-				<button
-					class="text-muted-foreground hover:text-foreground rounded p-1.5"
-					aria-label="Sign out"
-					title="Sign out"
+			<div class="flex items-center gap-2">
+				<div
+					class="bg-accent text-accent-foreground grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold"
 				>
-					<LogOut class="size-4" />
-				</button>
-			</form>
+					{initials}
+				</div>
+				<span class="text-muted-foreground min-w-0 flex-1 truncate text-xs" title={userEmail}>
+					{userEmail}
+				</span>
+				<form method="POST" action="/auth/signout">
+					<button
+						class="text-muted-foreground hover:text-foreground rounded p-1.5"
+						aria-label="Sign out"
+						title="Sign out"
+					>
+						<LogOut class="size-4" />
+					</button>
+				</form>
+			</div>
 		{/if}
 	</div>
 </aside>

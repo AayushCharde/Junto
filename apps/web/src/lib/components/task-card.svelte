@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { TASK_PRIORITY_LABELS } from '@junto/core';
 	import { getTracker, type Task } from '$lib/state/tracker.svelte';
-	import { PRIORITY_DOT } from '$lib/tracker-meta';
+	import PriorityIcon from '$lib/components/priority-icon.svelte';
 	import { formatDue, isOverdue } from '$lib/due';
-	import Circle from '@lucide/svelte/icons/circle';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ListChecks from '@lucide/svelte/icons/list-checks';
 
@@ -43,47 +41,39 @@
 			onopen(task);
 		}
 	}}
-	class="group border-border bg-card hover:border-ring/60 focus-visible:border-ring focus-visible:ring-ring/50 relative cursor-grab rounded-md border p-2.5 shadow-xs transition-colors outline-none focus-visible:ring-[2px] active:cursor-grabbing"
+	class="group border-border bg-card hover:border-ring/60 hover:bg-accent/30 focus-visible:border-ring focus-visible:ring-ring/50 relative cursor-grab rounded-lg border p-2.5 shadow-sm transition-all outline-none hover:shadow-md focus-visible:ring-[2px] active:cursor-grabbing"
 	class:drop-indicator={indicator}
 >
-	<p class="text-foreground text-sm leading-snug">{task.title}</p>
-
 	{#if labels.length > 0}
-		<div class="mt-2 flex flex-wrap gap-1">
+		<div class="mb-1.5 flex flex-wrap gap-1">
 			{#each labels as label (label.id)}
 				<span
-					class="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] leading-none"
-					style={`color:${label.color ?? '#a1a1aa'};border-color:color-mix(in srgb, ${label.color ?? '#a1a1aa'} 40%, transparent)`}
+					class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none font-medium"
+					style={`color:${label.color ?? '#a1a1aa'};background:color-mix(in srgb, ${label.color ?? '#a1a1aa'} 16%, transparent)`}
 				>
-					<span class="size-1.5 rounded-full" style={`background:${label.color ?? '#a1a1aa'}`}></span>
 					{label.name}
 				</span>
 			{/each}
 		</div>
 	{/if}
 
-	{#if task.priority !== 'none' || task.dueDate || sub.total > 0}
-		<div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-			{#if task.priority !== 'none'}
-				<span class="flex items-center gap-1">
-					<Circle class="size-2.5 fill-current {PRIORITY_DOT[task.priority]}" />
-					{TASK_PRIORITY_LABELS[task.priority]}
-				</span>
-			{/if}
-			{#if task.dueDate}
-				<span class="flex items-center gap-1 {overdue ? 'text-red-400' : ''}">
-					<CalendarDays class="size-3" />
-					{formatDue(task.dueDate)}
-				</span>
-			{/if}
-			{#if sub.total > 0}
-				<span class="flex items-center gap-1">
-					<ListChecks class="size-3" />
-					{sub.done}/{sub.total}
-				</span>
-			{/if}
-		</div>
-	{/if}
+	<p class="text-foreground text-sm leading-snug">{task.title}</p>
+
+	<div class="text-muted-foreground mt-2 flex items-center gap-3 text-xs">
+		<PriorityIcon priority={task.priority} class="size-3.5" />
+		{#if task.dueDate}
+			<span class="flex items-center gap-1 {overdue ? 'font-medium text-red-400' : ''}">
+				<CalendarDays class="size-3" />
+				{formatDue(task.dueDate)}
+			</span>
+		{/if}
+		{#if sub.total > 0}
+			<span class="flex items-center gap-1">
+				<ListChecks class="size-3" />
+				{sub.done}/{sub.total}
+			</span>
+		{/if}
+	</div>
 </div>
 
 <style>
