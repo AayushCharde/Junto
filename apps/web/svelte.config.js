@@ -5,7 +5,10 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter()
+		adapter: adapter(),
+		// $env/* modules read .env from here; point at the monorepo root so the
+		// single shared .env (and Cloudflare secrets) are picked up.
+		env: { dir: '../../' }
 	}
 };
 

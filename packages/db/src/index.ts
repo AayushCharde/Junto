@@ -7,3 +7,4 @@ export * as schema from './schema';
 export * from './schema';
 export { createDb, type Database, type DbSchema } from './client';
 export { createSupabaseAdmin } from './supabase-admin';
+export * from './queries';
