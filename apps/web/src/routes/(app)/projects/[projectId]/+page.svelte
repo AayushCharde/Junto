@@ -10,8 +10,9 @@
 	import TaskCard from '$lib/components/task-card.svelte';
 	import TaskEditor from '$lib/components/task-editor.svelte';
 	import { getTracker, STATUS_COLUMNS, type Task } from '$lib/state/tracker.svelte';
-	import { PRIORITY_DOT, STATUS_DOT } from '$lib/tracker-meta';
-	import Circle from '@lucide/svelte/icons/circle';
+	import StatusIcon from '$lib/components/status-icon.svelte';
+	import PriorityIcon from '$lib/components/priority-icon.svelte';
+	import { formatDue, isOverdue } from '$lib/due';
 	import Columns3 from '@lucide/svelte/icons/columns-3';
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import ListIcon from '@lucide/svelte/icons/list';
@@ -181,13 +182,17 @@
 					role="list"
 					aria-label={TASK_STATUS_LABELS[status]}
 				>
-					<div class="mb-1 flex items-center gap-2 px-1 py-1">
-						<Circle class="size-2.5 fill-current {STATUS_DOT[status]}" />
+					<div class="mb-2 flex items-center gap-2 px-1">
+						<StatusIcon {status} class="size-3.5" />
 						<span class="text-sm font-medium">{TASK_STATUS_LABELS[status]}</span>
-						<span class="text-muted-foreground text-xs">{store.countByStatus(projectId, status)}</span>
+						<span
+							class="bg-muted text-muted-foreground rounded-full px-1.5 text-[11px] tabular-nums"
+						>
+							{store.countByStatus(projectId, status)}
+						</span>
 					</div>
 
-					<div class="flex flex-col gap-2 px-0.5">
+					<div class="flex min-h-2 flex-col gap-2 px-0.5">
 						{#each store.tasksByStatus(projectId, status) as task (task.id)}
 							<TaskCard
 								{task}
@@ -206,7 +211,7 @@
 						onkeydown={(e) => {
 							if (e.key === 'Enter') quickAdd(status, status);
 						}}
-						class="text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:text-foreground mt-2 w-full rounded-md border border-transparent px-2 py-1.5 text-sm outline-none focus-visible:ring-[2px]"
+						class="text-muted-foreground hover:bg-accent/40 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:text-foreground mt-2 w-full rounded-md border border-transparent px-2 py-1.5 text-sm outline-none transition-colors focus-visible:ring-[2px]"
 					/>
 				</section>
 			{/each}
@@ -231,21 +236,35 @@
 					<div
 						class="text-muted-foreground bg-muted/40 flex items-center gap-2 px-5 py-1.5 text-xs font-medium"
 					>
-						<Circle class="size-2.5 fill-current {STATUS_DOT[status]}" />
+						<StatusIcon {status} class="size-3.5" />
 						{TASK_STATUS_LABELS[status]}
-						<span>{rows.length}</span>
+						<span class="tabular-nums">{rows.length}</span>
 					</div>
 					{#each rows as task (task.id)}
+						{@const taskLabels = store.labelsForTask(task.id)}
 						<button
 							onclick={() => openTask(task)}
-							class="border-border/60 hover:bg-accent/40 flex w-full items-center gap-3 border-b px-5 py-2 text-left"
+							class="border-border/60 hover:bg-accent/40 flex w-full items-center gap-3 border-b px-5 py-2 text-left transition-colors"
 						>
-							<Circle
-								class="size-3 shrink-0 fill-current {task.priority === 'none'
-									? 'text-transparent'
-									: PRIORITY_DOT[task.priority]}"
-							/>
+							<PriorityIcon priority={task.priority} class="size-3.5 shrink-0" />
 							<span class="min-w-0 flex-1 truncate text-sm">{task.title}</span>
+							{#each taskLabels.slice(0, 2) as label (label.id)}
+								<span
+									class="hidden shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium sm:inline"
+									style={`color:${label.color ?? '#a1a1aa'};background:color-mix(in srgb, ${label.color ?? '#a1a1aa'} 16%, transparent)`}
+								>
+									{label.name}
+								</span>
+							{/each}
+							{#if task.dueDate}
+								<span
+									class="shrink-0 text-xs {isOverdue(task.dueDate)
+										? 'text-red-400'
+										: 'text-muted-foreground'}"
+								>
+									{formatDue(task.dueDate)}
+								</span>
+							{/if}
 						</button>
 					{/each}
 				{/if}

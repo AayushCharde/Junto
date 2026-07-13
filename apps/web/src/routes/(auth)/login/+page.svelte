@@ -10,7 +10,10 @@
 
 <svelte:head><title>Sign in · Junto</title></svelte:head>
 
-<div class="bg-background text-foreground flex min-h-screen items-center justify-center px-6">
+<div
+	class="bg-background text-foreground relative flex min-h-screen items-center justify-center px-6"
+	style="background-image: radial-gradient(60rem 30rem at 50% -10%, color-mix(in srgb, var(--primary) 12%, transparent), transparent);"
+>
 	<div class="w-full max-w-sm">
 		<div class="mb-6 flex items-center gap-2">
 			<div

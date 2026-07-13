@@ -1,18 +1,19 @@
 import type { TaskPriority, TaskStatus } from '@junto/core';
 
-/** Tailwind text-color classes for each status dot (Linear-ish palette). */
-export const STATUS_DOT: Record<TaskStatus, string> = {
-	backlog: 'text-zinc-500',
-	todo: 'text-zinc-300',
-	in_progress: 'text-amber-400',
-	done: 'text-emerald-400',
-	canceled: 'text-zinc-600'
+/** Canonical status colors (hex) — used by the status icon and the distribution bar. */
+export const STATUS_COLOR: Record<TaskStatus, string> = {
+	backlog: '#8b8b94',
+	todo: '#a1a1aa',
+	in_progress: '#f59e0b',
+	done: '#10b981',
+	canceled: '#6b6b73'
 };
 
-export const PRIORITY_DOT: Record<TaskPriority, string> = {
-	none: 'text-zinc-600',
-	low: 'text-sky-400',
-	medium: 'text-yellow-400',
-	high: 'text-orange-400',
-	urgent: 'text-red-400'
+/** Priority colors (hex) — used by the priority bar icon. */
+export const PRIORITY_COLOR: Record<TaskPriority, string> = {
+	none: '#71717a',
+	low: '#38bdf8',
+	medium: '#eab308',
+	high: '#f97316',
+	urgent: '#f43f5e'
 };
