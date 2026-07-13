@@ -1,0 +1,21 @@
+{
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"rewriteRelativeImportExtensions": true,
+		"allowJs": true,
+		// Off so `svelte-check` doesn't type-check emitted .svelte-kit/cloudflare
+		// build output. Our source is all .ts/.svelte; only build output + config
+		// files are .js.
+		"checkJs": false,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"moduleResolution": "bundler",
+		"types": [
+			"./worker-configuration.d.ts"
+		]
+	}
+}

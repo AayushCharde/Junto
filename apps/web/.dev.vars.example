@@ -1,0 +1,8 @@
+# Used by `wrangler dev` / `pnpm --filter @junto/web preview` (Workers runtime).
+# Copy to `apps/web/.dev.vars` (git-ignored). Mirror the values from the repo-root .env.
+# For plain `vite dev` you do NOT need this file — the root .env is used instead.
+
+PUBLIC_SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
+PUBLIC_SUPABASE_ANON_KEY="your-anon-public-key"
+DATABASE_URL="postgresql://postgres.PROJECT:PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-secret-key"
