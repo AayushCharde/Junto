@@ -1,8 +1,8 @@
 import { getDefaultWorkspace, listProjects, listTasksForWorkspace } from '@junto/db';
 import { getDb } from '$lib/server/db';
-import type { PageServerLoad } from './$types';
+import type { LayoutServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
+export const load: LayoutServerLoad = async () => {
 	const db = getDb();
 	const workspace = await getDefaultWorkspace(db);
 	if (!workspace) {

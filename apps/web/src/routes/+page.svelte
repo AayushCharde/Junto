@@ -1,277 +1,129 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { TASK_STATUS_LABELS, type TaskStatus } from '@junto/core';
-	import { Button } from '$lib/components/ui/button';
-	import TaskCard from '$lib/components/task-card.svelte';
-	import TaskEditor from '$lib/components/task-editor.svelte';
-	import { STATUS_COLUMNS, TrackerStore, type Task } from '$lib/state/tracker.svelte';
+	import { TASK_PRIORITY_LABELS, TASK_STATUS_LABELS } from '@junto/core';
+	import { getTracker, STATUS_COLUMNS } from '$lib/state/tracker.svelte';
 	import { PRIORITY_DOT, STATUS_DOT } from '$lib/tracker-meta';
 	import Circle from '@lucide/svelte/icons/circle';
-	import Columns3 from '@lucide/svelte/icons/columns-3';
+	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import Inbox from '@lucide/svelte/icons/inbox';
-	import ListIcon from '@lucide/svelte/icons/list';
-	import Plus from '@lucide/svelte/icons/plus';
 
-	let { data } = $props();
+	const store = getTracker();
 
-	const store = new TrackerStore({
-		workspaceId: data.workspace?.id ?? null,
-		projects: data.projects,
-		tasks: data.tasks
-	});
-
-	let editing = $state<Task | null>(null);
-	let dragOverStatus = $state<TaskStatus | null>(null);
-
-	// New-project inline input.
-	let addingProject = $state(false);
-	let newProjectName = $state('');
-
-	// Quick-add draft text, keyed by status column (board) or a single one (list).
-	let drafts = $state<Record<string, string>>({});
-
-	onMount(() => {
-		store.startRealtime();
-		return () => store.stopRealtime();
-	});
-
-	function openTask(task: Task) {
-		editing = task;
-	}
-
-	function handleDragStart(event: DragEvent, task: Task) {
-		event.dataTransfer?.setData('text/plain', task.id);
-		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-	}
-
-	function handleDrop(event: DragEvent, status: TaskStatus) {
-		event.preventDefault();
-		dragOverStatus = null;
-		const id = event.dataTransfer?.getData('text/plain');
-		if (id) store.moveTask(id, status);
-	}
-
-	async function quickAdd(status: TaskStatus, key: string) {
-		const value = drafts[key]?.trim();
-		if (!value) return;
-		drafts[key] = '';
-		await store.createTask(value, status);
-	}
-
-	function focusOnMount(node: HTMLElement) {
-		node.focus();
-	}
-
-	async function submitNewProject() {
-		const name = newProjectName.trim();
-		if (!name) {
-			addingProject = false;
-			return;
-		}
-		newProjectName = '';
-		addingProject = false;
-		await store.createProject(name);
-	}
+	const tiles = $derived([
+		{ label: 'Total tasks', value: store.totalTasks },
+		{ label: 'Active', value: store.activeTasks.length },
+		{ label: 'Done', value: store.doneCount },
+		{ label: 'Projects', value: store.projects.length }
+	]);
 </script>
 
-<svelte:head><title>Junto</title></svelte:head>
+<svelte:head><title>Home · Junto</title></svelte:head>
 
-<div class="bg-background text-foreground flex h-screen overflow-hidden">
-	<!-- Sidebar -->
-	<aside class="border-border bg-sidebar flex w-60 shrink-0 flex-col border-r">
-		<div class="border-border flex h-12 items-center border-b px-4">
-			<span class="text-sm font-semibold tracking-tight">Junto</span>
-		</div>
+<header class="border-border flex h-12 shrink-0 items-center border-b px-5">
+	<h1 class="text-sm font-semibold">Home</h1>
+</header>
 
-		<nav class="flex-1 overflow-y-auto p-2">
-			<div class="text-muted-foreground flex items-center justify-between px-2 py-1.5">
-				<span class="text-xs font-medium tracking-wide uppercase">Projects</span>
-				<button
-					class="hover:text-foreground rounded p-0.5"
-					aria-label="New project"
-					onclick={() => {
-						addingProject = true;
-					}}
-				>
-					<Plus class="size-4" />
-				</button>
-			</div>
-
-			{#each store.projects as project (project.id)}
-				<button
-					onclick={() => store.selectProject(project.id)}
-					class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors
-						{store.currentProjectId === project.id
-						? 'bg-accent text-accent-foreground'
-						: 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}"
-				>
-					<span
-						class="size-2.5 shrink-0 rounded-full"
-						style={`background:${project.color ?? '#71717a'}`}
-					></span>
-					<span class="truncate">{project.name}</span>
-				</button>
+<div class="flex-1 overflow-y-auto">
+	<div class="mx-auto max-w-5xl space-y-8 p-6">
+		<!-- Stat tiles -->
+		<section class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+			{#each tiles as tile (tile.label)}
+				<div class="border-border bg-card rounded-lg border p-4">
+					<p class="text-muted-foreground text-xs font-medium">{tile.label}</p>
+					<p class="mt-1 text-2xl font-semibold tabular-nums">{tile.value}</p>
+				</div>
 			{/each}
+		</section>
 
-			{#if addingProject}
-				<input
-					bind:value={newProjectName}
-					placeholder="Project name"
-					use:focusOnMount
-					onblur={submitNewProject}
-					onkeydown={(e) => {
-						if (e.key === 'Enter') submitNewProject();
-						if (e.key === 'Escape') {
-							newProjectName = '';
-							addingProject = false;
-						}
-					}}
-					class="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 mt-1 w-full rounded-md border px-2 py-1.5 text-sm outline-none focus-visible:ring-[2px]"
-				/>
-			{/if}
-
-			{#if store.projects.length === 0 && !addingProject}
-				<p class="text-muted-foreground px-2 py-2 text-xs">No projects yet.</p>
-			{/if}
-		</nav>
-	</aside>
-
-	<!-- Main -->
-	<main class="flex min-w-0 flex-1 flex-col">
-		<header class="border-border flex h-12 shrink-0 items-center justify-between border-b px-4">
-			<div class="flex items-center gap-2">
-				<h1 class="text-sm font-semibold">{store.currentProject?.name ?? 'No project'}</h1>
-				<span class="text-muted-foreground text-xs">{store.visibleTasks.length}</span>
-			</div>
-
-			<div class="flex items-center gap-1">
-				<div class="border-border flex items-center rounded-md border p-0.5">
-					<button
-						onclick={() => store.setView('board')}
-						class="flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors
-							{store.view === 'board'
-							? 'bg-accent text-accent-foreground'
-							: 'text-muted-foreground hover:text-foreground'}"
-					>
-						<Columns3 class="size-3.5" /> Board
-					</button>
-					<button
-						onclick={() => store.setView('list')}
-						class="flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors
-							{store.view === 'list'
-							? 'bg-accent text-accent-foreground'
-							: 'text-muted-foreground hover:text-foreground'}"
-					>
-						<ListIcon class="size-3.5" /> List
-					</button>
-				</div>
-			</div>
-		</header>
-
-		{#if !store.currentProject}
-			<div class="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-3">
-				<Inbox class="size-10 opacity-40" />
-				<p class="text-sm">Create a project to get started.</p>
-				<Button size="sm" onclick={() => (addingProject = true)}>
-					<Plus class="size-4" /> New project
-				</Button>
-			</div>
-		{:else if store.view === 'board'}
-			<!-- Board -->
-			<div class="flex flex-1 gap-3 overflow-x-auto p-4">
+		<!-- Status breakdown -->
+		<section>
+			<h2 class="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+				By status
+			</h2>
+			<div class="border-border bg-card flex flex-wrap gap-x-6 gap-y-2 rounded-lg border p-4">
 				{#each STATUS_COLUMNS as status (status)}
-					<section
-						class="flex w-72 shrink-0 flex-col rounded-lg transition-colors
-							{dragOverStatus === status ? 'bg-accent/40' : ''}"
-						ondragover={(e) => {
-							e.preventDefault();
-							dragOverStatus = status;
-						}}
-						ondragleave={() => {
-							if (dragOverStatus === status) dragOverStatus = null;
-						}}
-						ondrop={(e) => handleDrop(e, status)}
-						role="list"
-						aria-label={TASK_STATUS_LABELS[status]}
-					>
-						<div class="mb-1 flex items-center gap-2 px-1 py-1">
-							<Circle class="size-2.5 fill-current {STATUS_DOT[status]}" />
-							<span class="text-sm font-medium">{TASK_STATUS_LABELS[status]}</span>
-							<span class="text-muted-foreground text-xs">{store.countByStatus(status)}</span>
-						</div>
-
-						<div class="flex flex-col gap-2 px-0.5">
-							{#each store.tasksByStatus(status) as task (task.id)}
-								<TaskCard {task} onopen={openTask} ondragstart={handleDragStart} />
-							{/each}
-						</div>
-
-						<input
-							bind:value={drafts[status]}
-							placeholder="+ Add task"
-							onkeydown={(e) => {
-								if (e.key === 'Enter') quickAdd(status, status);
-							}}
-							class="text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:text-foreground mt-2 w-full rounded-md border border-transparent px-2 py-1.5 text-sm outline-none focus-visible:ring-[2px]"
-						/>
-					</section>
-				{/each}
-			</div>
-		{:else}
-			<!-- List -->
-			<div class="flex-1 overflow-y-auto">
-				<div class="border-border flex items-center gap-2 border-b px-4 py-2">
-					<Plus class="text-muted-foreground size-4" />
-					<input
-						bind:value={drafts['list']}
-						placeholder="Add a task…"
-						onkeydown={(e) => {
-							if (e.key === 'Enter') quickAdd('backlog', 'list');
-						}}
-						class="placeholder:text-muted-foreground w-full bg-transparent text-sm outline-none"
-					/>
-				</div>
-
-				{#each STATUS_COLUMNS as status (status)}
-					{@const rows = store.tasksByStatus(status)}
-					{#if rows.length > 0}
-						<div
-							class="text-muted-foreground bg-muted/40 flex items-center gap-2 px-4 py-1.5 text-xs font-medium"
-						>
-							<Circle class="size-2.5 fill-current {STATUS_DOT[status]}" />
-							{TASK_STATUS_LABELS[status]}
-							<span>{rows.length}</span>
-						</div>
-						{#each rows as task (task.id)}
-							<button
-								onclick={() => openTask(task)}
-								class="border-border/60 hover:bg-accent/40 flex w-full items-center gap-3 border-b px-4 py-2 text-left"
-							>
-								<Circle
-									class="size-3 shrink-0 fill-current {task.priority === 'none'
-										? 'text-transparent'
-										: PRIORITY_DOT[task.priority]}"
-								/>
-								<span class="min-w-0 flex-1 truncate text-sm">{task.title}</span>
-							</button>
-						{/each}
-					{/if}
-				{/each}
-
-				{#if store.visibleTasks.length === 0}
-					<div class="text-muted-foreground flex flex-col items-center justify-center gap-2 py-16">
-						<Inbox class="size-8 opacity-40" />
-						<p class="text-sm">No tasks yet. Add one above.</p>
+					<div class="flex items-center gap-2">
+						<Circle class="size-2.5 fill-current {STATUS_DOT[status]}" />
+						<span class="text-sm">{TASK_STATUS_LABELS[status]}</span>
+						<span class="text-muted-foreground text-sm tabular-nums">
+							{store.statusCount(status)}
+						</span>
 					</div>
-				{/if}
+				{/each}
 			</div>
-		{/if}
-	</main>
-</div>
+		</section>
 
-<TaskEditor
-	task={editing}
-	onclose={() => (editing = null)}
-	onsave={(id, patch) => store.updateTask(id, patch)}
-	ondelete={(id) => store.deleteTask(id)}
-/>
+		<!-- Projects grid -->
+		<section>
+			<h2 class="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+				Projects
+			</h2>
+			{#if store.projects.length === 0}
+				<div
+					class="border-border text-muted-foreground flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-sm"
+				>
+					<Inbox class="size-8 opacity-40" />
+					Create a project from the sidebar to get started.
+				</div>
+			{:else}
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+					{#each store.projects as project (project.id)}
+						{@const stats = store.projectStats(project.id)}
+						<a
+							href={`/projects/${project.id}`}
+							class="border-border bg-card hover:border-ring/60 group rounded-lg border p-4 transition-colors"
+						>
+							<div class="flex items-center gap-2">
+								<span
+									class="size-2.5 shrink-0 rounded-full"
+									style={`background:${project.color ?? '#71717a'}`}
+								></span>
+								<span class="truncate text-sm font-medium">{project.name}</span>
+							</div>
+							<div class="text-muted-foreground mt-3 flex items-center gap-4 text-xs">
+								<span>{stats.total} total</span>
+								<span>{stats.active} active</span>
+								<span class="flex items-center gap-1">
+									<CircleCheck class="size-3.5 text-emerald-400" />
+									{stats.done}
+								</span>
+							</div>
+						</a>
+					{/each}
+				</div>
+			{/if}
+		</section>
+
+		<!-- Active tasks across projects -->
+		<section>
+			<h2 class="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+				Active tasks
+			</h2>
+			{#if store.activeTasks.length === 0}
+				<p class="text-muted-foreground text-sm">Nothing in progress. Enjoy the calm.</p>
+			{:else}
+				<div class="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
+					{#each store.activeTasks.slice(0, 12) as task (task.id)}
+						{@const project = store.projectById(task.projectId)}
+						<a
+							href={`/projects/${task.projectId}`}
+							class="hover:bg-accent/40 flex items-center gap-3 px-4 py-2.5"
+						>
+							<Circle
+								class="size-3 shrink-0 fill-current {task.priority === 'none'
+									? 'text-transparent'
+									: PRIORITY_DOT[task.priority]}"
+							/>
+							<span class="min-w-0 flex-1 truncate text-sm">{task.title}</span>
+							{#if task.priority !== 'none'}
+								<span class="text-muted-foreground hidden text-xs sm:inline">
+									{TASK_PRIORITY_LABELS[task.priority]}
+								</span>
+							{/if}
+							<span class="text-muted-foreground shrink-0 text-xs">{project?.name ?? ''}</span>
+						</a>
+					{/each}
+				</div>
+			{/if}
+		</section>
+	</div>
+</div>
