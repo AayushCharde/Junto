@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import {
 		TASK_PRIORITIES,
 		TASK_PRIORITY_LABELS,
@@ -49,20 +50,25 @@
 		menu = null;
 	}
 
-	// Open/close in response to the shared UI state.
+	// Open/close in response to the shared UI state. Only `ui.composer` is a
+	// tracked dependency — the field seeding is untracked so a Realtime update
+	// to store.projects can't re-run this and wipe what the user is typing.
 	$effect(() => {
 		const seed = ui.composer;
 		if (seed) {
-			projectId = seed.projectId || store.projects[0]?.id || '';
-			status = seed.status ?? 'backlog';
-			description = '';
-			title = '';
-			priority = 'none';
-			dueDate = '';
-			labelIds = [];
-			if (dialog && !dialog.open) dialog.showModal();
-			// Focus the title after the dialog paints.
-			queueMicrotask(() => titleInput?.focus());
+			untrack(() => {
+				projectId = seed.projectId || store.projects[0]?.id || '';
+				status = seed.status ?? 'backlog';
+				description = '';
+				title = '';
+				priority = 'none';
+				dueDate = '';
+				labelIds = [];
+				menu = null;
+				if (dialog && !dialog.open) dialog.showModal();
+				// Focus the title after the dialog paints.
+				queueMicrotask(() => titleInput?.focus());
+			});
 		} else if (dialog?.open) {
 			dialog.close();
 		}
