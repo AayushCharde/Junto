@@ -4,10 +4,11 @@ A personal, keyboard-first task tracker (a Huly/Linear-style replacement) plus a
 MCP server so tasks can be created and managed directly from Claude. 100% free to
 run, 100% open-source, single Supabase Postgres database.
 
-> **Status: Phase 5 complete.** The tracker (Phase 1), auth + RLS (Phase 2),
-> metadata (Phase 3), comments + activity (Phase 4), and the ⌘K speed layer —
-> command palette, keyboard shortcuts, and a Huly-style task composer (Phase 5)
-> — are all wired up. Next: the MCP server (Phase 6). See the build roadmap below.
+> **Status: Phase 6 complete.** The tracker (Phase 1), auth + RLS (Phase 2),
+> metadata (Phase 3), comments + activity (Phase 4), the ⌘K speed layer (Phase 5),
+> and the **MCP server** — a Cloudflare Worker exposing the tracker to Claude over
+> bearer-authenticated Streamable HTTP (Phase 6) — are all wired up. Next: search
+> & AI (Phase 7). See the build roadmap below.
 
 ## Stack
 
@@ -27,12 +28,11 @@ run, 100% open-source, single Supabase Postgres database.
 ```
 apps/
   web/        # SvelteKit app (UI + app API) → Cloudflare
+  mcp/        # MCP server Worker (POST /mcp, bearer auth) → Cloudflare
 packages/
-  core/       # shared enums/types + (from Phase 1) task business logic
+  core/       # shared enums/types + Zod validation + task business logic
   db/         # Drizzle schema, migrations, RLS, seed, client factories
 ```
-
-`apps/mcp` (the MCP Worker) is added in Phase 6.
 
 ## Prerequisites
 
@@ -111,6 +111,30 @@ pnpm --filter @junto/web exec wrangler deploy
 
 Your app will be live at `https://junto-web.<your-subdomain>.workers.dev`.
 
+## MCP server (connect the tracker to Claude)
+
+`apps/mcp` is a separate Cloudflare Worker that exposes the tracker to Claude over the Model
+Context Protocol (Streamable HTTP, `POST /mcp`). It reuses the same schema and queries as the web
+app and is authenticated with a single **bearer token**.
+
+```bash
+# local dev:
+cp apps/mcp/.dev.vars.example apps/mcp/.dev.vars   # fill in DATABASE_URL + MCP_BEARER_TOKEN
+pnpm mcp:dev                                        # http://localhost:8787/mcp
+
+# deploy:
+pnpm --filter @junto/mcp exec wrangler secret put DATABASE_URL
+pnpm --filter @junto/mcp exec wrangler secret put MCP_BEARER_TOKEN   # e.g. `openssl rand -hex 32`
+# optional — pin the workspace (defaults to the oldest one):
+pnpm --filter @junto/mcp exec wrangler secret put MCP_WORKSPACE_ID
+pnpm mcp:deploy
+```
+
+Then add it to Claude as a **custom connector / remote MCP server** with URL
+`https://junto-mcp.<your-subdomain>.workers.dev/mcp` and header
+`Authorization: Bearer <your token>`. Tools: `list_projects`, `list_tasks`, `create_task`,
+`update_task`, `create_project`. Tasks created via Claude stream into the web UI live (Realtime).
+
 ## Scripts (run from repo root)
 
 | Command             | Description                                        |
@@ -123,6 +147,8 @@ Your app will be live at `https://junto-web.<your-subdomain>.workers.dev`.
 | `pnpm db:seed`      | Seed the default user/workspace/project            |
 | `pnpm db:studio`    | Open Drizzle Studio                                |
 | `pnpm db:push`      | Push schema directly (dev shortcut; prefer migrate)|
+| `pnpm mcp:dev`      | Run the MCP server Worker locally (`wrangler dev`) |
+| `pnpm mcp:deploy`   | Deploy the MCP server Worker to Cloudflare          |
 
 ## Build roadmap
 
@@ -132,6 +158,6 @@ Your app will be live at `https://junto-web.<your-subdomain>.workers.dev`.
 - **Phase 3 — Metadata**: labels, subtasks, due dates, drag-ordering, filters ✅
 - **Phase 4 — Comments & activity** ✅
 - **Phase 5 — Speed layer**: ⌘K command palette + keyboard shortcuts ✅
-- **Phase 6 — MCP server**: `apps/mcp`, bearer auth, connect to Claude
+- **Phase 6 — MCP server**: `apps/mcp`, bearer auth, connect to Claude ✅
 - **Phase 7 — Search & AI**: Postgres FTS, then pgvector + local Ollama
 - **Phase 8 — Polish & ship**: PWA, production deploy, keep-alive cron

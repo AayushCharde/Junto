@@ -1,0 +1,13 @@
+# Junto MCP server — copy to `apps/mcp/.dev.vars` (git-ignored) for `wrangler dev`.
+# In production these are set as Worker secrets via `wrangler secret put`.
+
+# Same Supabase connection string the web app uses (transaction pooler, port 6543).
+DATABASE_URL="postgresql://postgres.PROJECT:PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres"
+
+# The bearer token Claude must present (Authorization: Bearer <token>).
+# Generate a long random value, e.g. `openssl rand -hex 32`.
+MCP_BEARER_TOKEN="replace-with-a-long-random-secret"
+
+# Optional: pin the workspace the MCP server operates on. Defaults to the
+# oldest workspace in the database (the single-user personal workspace).
+# MCP_WORKSPACE_ID="00000000-0000-0000-0000-000000000000"
