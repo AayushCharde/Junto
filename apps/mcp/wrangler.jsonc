@@ -6,7 +6,10 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "src/index.ts",
 	"workers_dev": true,
-	"preview_urls": true
+	"preview_urls": true,
+	// Keep-alive (Phase 8): daily 06:00 UTC tick runs `select 1` so the free-tier
+	// Supabase project doesn't pause after ~a week of inactivity.
+	"triggers": { "crons": ["0 6 * * *"] }
 	// Secrets (set with `wrangler secret put`): DATABASE_URL, MCP_BEARER_TOKEN,
 	// and optionally MCP_WORKSPACE_ID.
 }

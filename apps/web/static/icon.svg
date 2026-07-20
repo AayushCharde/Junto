@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+	<title>Junto</title>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#0d1117" />
+			<stop offset="1" stop-color="#0a0a0a" />
+		</linearGradient>
+		<linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#34d399" />
+			<stop offset="1" stop-color="#3b82f6" />
+		</linearGradient>
+	</defs>
+	<rect width="512" height="512" rx="112" fill="url(#bg)" />
+	<!-- A "J": vertical stem hooking left at the bottom. -->
+	<path
+		d="M320 128 L320 300 A104 104 0 0 1 216 404 A104 104 0 0 1 112 300 L112 288 L176 288 L176 300 A40 40 0 0 0 256 300 L256 128 Z"
+		fill="url(#mark)"
+	/>
+</svg>

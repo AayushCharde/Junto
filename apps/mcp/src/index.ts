@@ -9,7 +9,7 @@
  * surface here is small and stable.
  */
 
-import { createDb, getDefaultWorkspace, type Database } from '@junto/db';
+import { createDb, getDefaultWorkspace, pingDb, type Database } from '@junto/db';
 import { TOOLS, ToolError, type ToolDef } from './tools';
 
 interface Environment {
@@ -180,5 +180,19 @@ export default {
 
 		const response = await handleMessage(body as RpcRequest, db, env);
 		return response ? json(response) : new Response(null, { status: 202, headers: CORS });
+	},
+
+	// Keep-alive (Phase 8): a trivial daily query so the free-tier Supabase
+	// project doesn't pause after a week of inactivity. Cron in wrangler.jsonc.
+	async scheduled(_event: ScheduledController, env: Environment, ctx: ExecutionContext) {
+		ctx.waitUntil(
+			(async () => {
+				try {
+					await pingDb(createDb(env.DATABASE_URL));
+				} catch {
+					/* best-effort keep-alive */
+				}
+			})()
+		);
 	}
 } satisfies ExportedHandler<Environment>;
