@@ -24,6 +24,18 @@
 
 	let dialog = $state<HTMLDialogElement | null>(null);
 	let titleInput = $state<HTMLInputElement | null>(null);
+	let dateInput = $state<HTMLInputElement | null>(null);
+
+	/** Open the native date picker reliably (a hidden 0-width input never does). */
+	function openDatePicker() {
+		if (!dateInput) return;
+		try {
+			dateInput.showPicker();
+		} catch {
+			dateInput.focus();
+			dateInput.click();
+		}
+	}
 
 	let projectId = $state('');
 	let title = $state('');
@@ -120,12 +132,12 @@
 			create();
 		}
 	}}
-	class="text-foreground bg-card border-border m-auto w-full max-w-2xl rounded-xl border p-0 shadow-2xl backdrop:bg-black/60"
+	class="text-foreground bg-card border-border mx-auto mt-[7vh] mb-auto w-[calc(100%-2rem)] max-w-3xl rounded-xl border p-0 shadow-2xl backdrop:bg-black/60"
 >
 	{#if ui.composer}
-		<div class="flex flex-col">
+		<div class="flex max-h-[82vh] flex-col">
 			<!-- Header: project selector + "New task" -->
-			<div class="border-border flex items-center gap-2 border-b px-4 py-2.5 text-xs">
+			<div class="border-border flex items-center gap-2 border-b px-5 py-3 text-xs">
 				<select
 					bind:value={projectId}
 					class="border-border bg-accent/40 hover:bg-accent focus-visible:ring-ring/50 rounded-md border px-2 py-1 font-medium outline-none focus-visible:ring-[2px]"
@@ -139,23 +151,25 @@
 			</div>
 
 			<!-- Title + description -->
-			<div class="flex flex-col gap-1 px-4 pt-4">
+			<div class="flex flex-col gap-2 px-5 pt-5">
 				<input
 					bind:this={titleInput}
 					bind:value={title}
 					placeholder="Task title"
-					class="placeholder:text-muted-foreground w-full bg-transparent text-lg font-medium outline-none"
+					onfocus={() => (menu = null)}
+					class="placeholder:text-muted-foreground w-full bg-transparent text-xl font-medium outline-none"
 				/>
 				<textarea
 					bind:value={description}
 					placeholder="Add description…"
-					rows="3"
-					class="placeholder:text-muted-foreground w-full resize-y bg-transparent text-sm outline-none"
+					rows="4"
+					onfocus={() => (menu = null)}
+					class="placeholder:text-muted-foreground max-h-[32vh] min-h-20 w-full resize-y bg-transparent text-sm outline-none"
 				></textarea>
 			</div>
 
 			<!-- Property pills -->
-			<div class="flex flex-wrap items-center gap-2 px-4 py-3">
+			<div class="flex flex-wrap items-center gap-2 px-5 py-4">
 				<!-- Status -->
 				<div class="relative">
 					<button type="button" class={pill} onclick={() => (menu = menu === 'status' ? null : 'status')}>
@@ -213,15 +227,23 @@
 				</div>
 
 				<!-- Due date -->
-				<label class={pill}>
+				<button type="button" class={pill} onclick={openDatePicker}>
 					<CalendarDays class="size-3.5" />
 					{#if dueDate}
 						{formatDue(dueDate)}
 					{:else}
 						<span class="text-muted-foreground">Due date</span>
 					{/if}
-					<input type="date" bind:value={dueDate} class="w-0 opacity-0" />
-				</label>
+				</button>
+				<!-- Kept in the DOM (not display:none) so showPicker() works. -->
+				<input
+					bind:this={dateInput}
+					type="date"
+					bind:value={dueDate}
+					tabindex="-1"
+					aria-hidden="true"
+					class="pointer-events-none absolute h-0 w-0 opacity-0"
+				/>
 				{#if dueDate}
 					<button
 						type="button"
