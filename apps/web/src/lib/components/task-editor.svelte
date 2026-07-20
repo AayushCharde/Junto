@@ -10,6 +10,10 @@
 	import { Button } from '$lib/components/ui/button';
 	import { getTracker, type Task } from '$lib/state/tracker.svelte';
 	import { describeActivity, formatRelative } from '$lib/activity';
+	import { formatDue } from '$lib/due';
+	import StatusIcon from '$lib/components/status-icon.svelte';
+	import PriorityIcon from '$lib/components/priority-icon.svelte';
+	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import Check from '@lucide/svelte/icons/check';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -25,20 +29,26 @@
 	let status = $state<TaskStatus>('backlog');
 	let priority = $state<TaskPriority>('none');
 	let dueDate = $state('');
+	let editingDesc = $state(false);
 	let newSubtask = $state('');
 	let newLabel = $state('');
 	let newComment = $state('');
 
-	// Live views from the store (react to Realtime + local mutations).
+	const project = $derived(task ? store.projectById(task.projectId) : null);
 	const subtasks = $derived(task ? store.subtasksOf(task.id) : []);
 	const comments = $derived(task ? store.commentsForTask(task.id) : []);
 	const activity = $derived(task ? store.activityForTask(task.id) : []);
+	const taskLabels = $derived(task ? store.labelsForTask(task.id) : []);
 
+	function focus(node: HTMLElement) {
+		node.focus();
+	}
 	function initials(name: string | null): string {
 		const s = (name ?? '?').trim();
 		return s ? s[0].toUpperCase() : '?';
 	}
 
+	// Sync local fields whenever a different task opens.
 	$effect(() => {
 		if (task) {
 			title = task.title;
@@ -46,22 +56,34 @@
 			status = task.status;
 			priority = task.priority;
 			dueDate = task.dueDate ?? '';
+			editingDesc = false;
 			if (dialog && !dialog.open) dialog.showModal();
 		} else if (dialog?.open) {
 			dialog.close();
 		}
 	});
 
-	function save() {
+	// Inline commits — every edit applies immediately (optimistic), no Save button.
+	function commitTitle() {
 		if (!task) return;
-		store.updateTask(task.id, {
-			title: title.trim() || task.title,
-			description: description.trim() ? description.trim() : null,
-			status,
-			priority,
-			dueDate: dueDate ? dueDate : null
-		});
-		onclose();
+		const t = title.trim();
+		if (t && t !== task.title) store.updateTask(task.id, { title: t });
+		else title = task.title;
+	}
+	function commitDesc() {
+		editingDesc = false;
+		if (!task) return;
+		const d = description.trim() ? description.trim() : null;
+		if (d !== (task.description ?? null)) store.updateTask(task.id, { description: d });
+	}
+	function commitStatus() {
+		if (task) store.updateTask(task.id, { status });
+	}
+	function commitPriority() {
+		if (task) store.updateTask(task.id, { priority });
+	}
+	function commitDue() {
+		if (task) store.updateTask(task.id, { dueDate: dueDate ? dueDate : null });
 	}
 
 	function addSubtask() {
@@ -69,20 +91,20 @@
 		store.createSubtask(task.id, task.projectId, newSubtask);
 		newSubtask = '';
 	}
-
 	async function createAndApplyLabel() {
 		if (!task || !newLabel.trim()) return;
 		const id = await store.createLabel(newLabel);
 		newLabel = '';
 		if (id) store.toggleTaskLabel(task.id, id);
 	}
-
 	function addComment() {
 		if (!task || !newComment.trim()) return;
 		store.addComment(task.id, newComment);
 		newComment = '';
 	}
 
+	const badge =
+		'relative inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm hover:bg-accent/40 transition-colors';
 	const fieldClass =
 		'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-[2px]';
 </script>
@@ -93,45 +115,123 @@
 	onclick={(e) => {
 		if (e.target === dialog) onclose();
 	}}
-	class="text-foreground bg-card border-border m-auto w-full max-w-lg rounded-lg border p-0 shadow-xl backdrop:bg-black/60"
+	class="text-foreground bg-card border-border m-auto w-full max-w-lg rounded-xl border p-0 shadow-2xl backdrop:bg-black/60"
 >
 	{#if task}
-		<div class="flex max-h-[85vh] flex-col gap-4 overflow-y-auto p-5">
-			<input bind:value={title} placeholder="Task title" class="{fieldClass} text-base font-medium" />
+		<!-- Header -->
+		<div class="border-border flex items-center justify-between border-b px-5 py-2.5">
+			<a
+				href={`/projects/${task.projectId}`}
+				class="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs"
+			>
+				<span class="size-2 rounded-full" style={`background:${project?.color ?? '#71717a'}`}></span>
+				{project?.name ?? 'Project'}
+			</a>
+			<button
+				type="button"
+				onclick={onclose}
+				class="text-muted-foreground hover:text-foreground -mr-1 rounded p-1"
+				aria-label="Close"
+			>
+				<X class="size-4" />
+			</button>
+		</div>
 
-			<textarea
-				bind:value={description}
-				placeholder="Add a description…"
-				rows="3"
-				class="{fieldClass} resize-y"
-			></textarea>
+		<div class="flex max-h-[80vh] flex-col gap-4 overflow-y-auto p-5">
+			<!-- Title (editable heading) -->
+			<input
+				bind:value={title}
+				onblur={commitTitle}
+				onkeydown={(e) => {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						e.currentTarget.blur();
+					}
+				}}
+				placeholder="Task title"
+				class="placeholder:text-muted-foreground w-full bg-transparent text-lg font-semibold outline-none"
+			/>
 
-			<div class="grid grid-cols-2 gap-3">
-				<label class="flex flex-col gap-1.5">
-					<span class="text-muted-foreground text-xs font-medium">Status</span>
-					<select bind:value={status} class={fieldClass}>
-						{#each TASK_STATUSES as s (s)}
-							<option value={s}>{TASK_STATUS_LABELS[s]}</option>
-						{/each}
+			<!-- Property badges — change inline via native pickers (never clipped) -->
+			<div class="flex flex-wrap items-center gap-2">
+				<span class={badge}>
+					<StatusIcon {status} class="size-3.5" />
+					{TASK_STATUS_LABELS[status]}
+					<select
+						bind:value={status}
+						onchange={commitStatus}
+						aria-label="Status"
+						class="absolute inset-0 cursor-pointer opacity-0"
+					>
+						{#each TASK_STATUSES as s (s)}<option value={s}>{TASK_STATUS_LABELS[s]}</option>{/each}
 					</select>
-				</label>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-muted-foreground text-xs font-medium">Priority</span>
-					<select bind:value={priority} class={fieldClass}>
-						{#each TASK_PRIORITIES as p (p)}
-							<option value={p}>{TASK_PRIORITY_LABELS[p]}</option>
-						{/each}
+				</span>
+
+				<span class={badge}>
+					<PriorityIcon {priority} class="size-3.5" />
+					{TASK_PRIORITY_LABELS[priority]}
+					<select
+						bind:value={priority}
+						onchange={commitPriority}
+						aria-label="Priority"
+						class="absolute inset-0 cursor-pointer opacity-0"
+					>
+						{#each TASK_PRIORITIES as p (p)}<option value={p}>{TASK_PRIORITY_LABELS[p]}</option>{/each}
 					</select>
-				</label>
+				</span>
+
+				<span class={badge}>
+					<CalendarDays class="size-3.5" />
+					{#if dueDate}{formatDue(dueDate)}{:else}<span class="text-muted-foreground">Due date</span>{/if}
+					<input
+						type="date"
+						bind:value={dueDate}
+						onchange={commitDue}
+						aria-label="Due date"
+						class="absolute inset-0 cursor-pointer opacity-0"
+					/>
+				</span>
+				{#if dueDate}
+					<button
+						type="button"
+						class="text-muted-foreground hover:text-foreground -ml-1"
+						aria-label="Clear due date"
+						onclick={() => {
+							dueDate = '';
+							commitDue();
+						}}
+					>
+						<X class="size-3.5" />
+					</button>
+				{/if}
 			</div>
 
-			<label class="flex flex-col gap-1.5">
-				<span class="text-muted-foreground text-xs font-medium">Due date</span>
-				<input type="date" bind:value={dueDate} class={fieldClass} />
-			</label>
+			<!-- Description (view → click to edit) -->
+			{#if editingDesc}
+				<textarea
+					bind:value={description}
+					use:focus
+					onblur={commitDesc}
+					placeholder="Add a description…"
+					rows="4"
+					class="{fieldClass} resize-y"
+				></textarea>
+			{:else}
+				<button
+					type="button"
+					onclick={() => (editingDesc = true)}
+					class="hover:bg-accent/30 -mx-2 rounded-md px-2 py-1.5 text-left text-sm"
+				>
+					{#if description.trim()}
+						<span class="whitespace-pre-wrap">{description}</span>
+					{:else}
+						<span class="text-muted-foreground">Add a description…</span>
+					{/if}
+				</button>
+			{/if}
 
 			<!-- Labels -->
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2 border-t pt-3">
 				<span class="text-muted-foreground text-xs font-medium">Labels</span>
 				<div class="flex flex-wrap gap-1.5">
 					{#each store.labels as label (label.id)}
@@ -145,8 +245,7 @@
 								: ''}
 							class:opacity-60={!on}
 						>
-							<span class="size-1.5 rounded-full" style={`background:${label.color ?? '#a1a1aa'}`}
-							></span>
+							<span class="size-1.5 rounded-full" style={`background:${label.color ?? '#a1a1aa'}`}></span>
 							{label.name}
 							{#if on}<Check class="size-3" />{/if}
 						</button>
@@ -169,13 +268,11 @@
 			</div>
 
 			<!-- Subtasks -->
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2 border-t pt-3">
 				<span class="text-muted-foreground text-xs font-medium">
 					Subtasks
 					{#if subtasks.length > 0}
-						<span class="ml-1">
-							{subtasks.filter((s) => s.status === 'done').length}/{subtasks.length}
-						</span>
+						<span class="ml-1">{subtasks.filter((s) => s.status === 'done').length}/{subtasks.length}</span>
 					{/if}
 				</span>
 				{#each subtasks as sub (sub.id)}
@@ -228,17 +325,13 @@
 				</span>
 				{#each comments as comment (comment.id)}
 					<div class="group/comment flex items-start gap-2">
-						<span
-							class="bg-muted text-muted-foreground mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium"
-						>
+						<span class="bg-muted text-muted-foreground mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium">
 							{initials(comment.authorName)}
 						</span>
 						<div class="min-w-0 flex-1">
 							<div class="flex items-baseline gap-2">
 								<span class="truncate text-xs font-medium">{comment.authorName ?? 'Someone'}</span>
-								<span class="text-muted-foreground shrink-0 text-xs">
-									{formatRelative(comment.createdAt)}
-								</span>
+								<span class="text-muted-foreground shrink-0 text-xs">{formatRelative(comment.createdAt)}</span>
 							</div>
 							<p class="text-sm break-words whitespace-pre-wrap">{comment.body}</p>
 						</div>
@@ -284,6 +377,7 @@
 				</div>
 			{/if}
 
+			<!-- Footer: delete + done (changes already saved inline) -->
 			<div class="flex items-center justify-between border-t pt-3">
 				<Button
 					variant="ghost"
@@ -294,13 +388,9 @@
 						onclose();
 					}}
 				>
-					<Trash2 class="size-4" />
-					Delete
+					<Trash2 class="size-4" /> Delete
 				</Button>
-				<div class="flex gap-2">
-					<Button variant="outline" size="sm" onclick={onclose}>Cancel</Button>
-					<Button size="sm" onclick={save}>Save</Button>
-				</div>
+				<Button variant="outline" size="sm" onclick={onclose}>Done</Button>
 			</div>
 		</div>
 	{/if}
