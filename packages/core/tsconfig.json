@@ -2,7 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
-    "noEmit": true
+    "noEmit": true,
+    // DOM is types-only here — it provides the fetch/Response/AbortSignal
+    // globals used by ollama.ts, which run in Workers, Node ≥20, and browsers.
+    "lib": ["ES2023", "DOM"]
   },
   "include": ["src/**/*.ts"]
 }

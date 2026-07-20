@@ -18,6 +18,7 @@
     "db:migrate": "pnpm --filter @junto/db migrate",
     "db:push": "pnpm --filter @junto/db push",
     "db:seed": "pnpm --filter @junto/db seed",
+    "db:embed": "pnpm --filter @junto/db embed",
     "db:studio": "pnpm --filter @junto/db studio"
   }
 }

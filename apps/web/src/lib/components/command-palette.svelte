@@ -119,23 +119,54 @@
 		return hay.includes(q);
 	}
 
+	// Server FTS results (Postgres), debounced. Instant client-side matches show
+	// first, then get replaced by the ranked server results when they arrive.
+	let serverTasks = $state<{ id: string; title: string; projectId: string }[]>([]);
+	let searchToken = 0;
+
+	$effect(() => {
+		const q = query.trim();
+		if (q.length < 2) {
+			serverTasks = [];
+			return;
+		}
+		const token = ++searchToken;
+		const timer = setTimeout(async () => {
+			try {
+				const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+				if (!res.ok) return;
+				const data = (await res.json()) as { tasks?: typeof serverTasks };
+				if (token === searchToken) serverTasks = data.tasks ?? [];
+			} catch {
+				/* keep the instant client-side matches */
+			}
+		}, 160);
+		return () => clearTimeout(timer);
+	});
+
 	// Task results only appear once the user types (there can be many).
 	const taskItems = $derived.by<Item[]>(() => {
 		const q = query.trim().toLowerCase();
 		if (!q) return [];
-		return store.tasks
-			.filter((t) => t.parentTaskId === null && t.title.toLowerCase().includes(q))
-			.slice(0, 8)
-			.map((t) => {
-				const project = store.projectById(t.projectId);
-				return {
-					id: `task-${t.id}`,
-					label: t.title,
-					hint: project?.name,
-					group: 'Tasks',
-					run: () => ui.openTask(t.id)
-				};
-			});
+		const source =
+			serverTasks.length > 0
+				? serverTasks
+				: store.tasks.filter(
+						(t) =>
+							t.parentTaskId === null &&
+							(t.title.toLowerCase().includes(q) ||
+								(t.description ?? '').toLowerCase().includes(q))
+					);
+		return source.slice(0, 8).map((t) => {
+			const project = store.projectById(t.projectId);
+			return {
+				id: `task-${t.id}`,
+				label: t.title,
+				hint: project?.name,
+				group: 'Tasks',
+				run: () => ui.openTask(t.id)
+			};
+		});
 	});
 
 	const results = $derived.by<Item[]>(() => {

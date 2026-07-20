@@ -14,6 +14,7 @@
     "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
     "seed": "tsx scripts/seed.ts",
+    "embed": "tsx scripts/embed.ts",
     "check": "tsc --noEmit"
   },
   "dependencies": {

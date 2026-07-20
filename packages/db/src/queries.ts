@@ -7,7 +7,8 @@
  * default workspace.
  */
 
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { toVectorLiteral } from '@junto/core';
 import type {
 	ActivityAction,
 	CreateCommentInput,
@@ -20,6 +21,7 @@ import type { Database } from './client';
 import {
 	activity,
 	comments,
+	embeddings,
 	labels,
 	profiles,
 	projects,
@@ -454,4 +456,84 @@ export async function listActivityForWorkspace(
 		.where(eq(activity.workspaceId, workspaceId))
 		.orderBy(desc(activity.createdAt))
 		.limit(limit);
+}
+
+// ── Search (Phase 7) ──────────────────────────────────────────────────────────
+
+/**
+ * Full-text search over a workspace's tasks, ranked. Queries the STORED
+ * `search_vector` generated column (see migration 0005) via raw SQL —
+ * `websearch_to_tsquery` gives Google-ish syntax (quotes, OR, -exclude).
+ */
+export async function searchTasks(
+	db: Database,
+	workspaceId: string,
+	query: string,
+	limit = 20
+): Promise<Task[]> {
+	const rows = await db
+		.select()
+		.from(tasks)
+		.innerJoin(projects, eq(tasks.projectId, projects.id))
+		.where(
+			and(
+				eq(projects.workspaceId, workspaceId),
+				sql`tasks.search_vector @@ websearch_to_tsquery('english', ${query})`
+			)
+		)
+		.orderBy(sql`ts_rank(tasks.search_vector, websearch_to_tsquery('english', ${query})) DESC`)
+		.limit(limit);
+	return rows.map((r) => r.tasks);
+}
+
+/**
+ * Semantic (vector) search over a workspace's tasks using a query embedding and
+ * cosine distance (`<=>`, matching the HNSW index). The caller supplies the
+ * query vector (embedded via Ollama); this stays pure SQL so it has no AI dep.
+ */
+export async function semanticSearchTasks(
+	db: Database,
+	workspaceId: string,
+	queryEmbedding: number[],
+	limit = 20
+): Promise<Task[]> {
+	const literal = toVectorLiteral(queryEmbedding);
+	const rows = await db
+		.select()
+		.from(tasks)
+		.innerJoin(
+			embeddings,
+			and(eq(embeddings.entityId, tasks.id), eq(embeddings.entityType, 'task'))
+		)
+		.innerJoin(projects, eq(tasks.projectId, projects.id))
+		.where(eq(projects.workspaceId, workspaceId))
+		.orderBy(sql`${embeddings.embedding} <=> ${literal}::vector`)
+		.limit(limit);
+	return rows.map((r) => r.tasks);
+}
+
+/** All tasks (id/title/description) for the embedding backfill script. */
+export async function listTasksForEmbedding(
+	db: Database
+): Promise<{ id: string; title: string; description: string | null }[]> {
+	return db
+		.select({ id: tasks.id, title: tasks.title, description: tasks.description })
+		.from(tasks);
+}
+
+/** Upsert one entity's embedding (keyed by entity_type + entity_id). */
+export async function upsertEmbedding(
+	db: Database,
+	entityType: string,
+	entityId: string,
+	content: string,
+	embedding: number[]
+): Promise<void> {
+	await db
+		.insert(embeddings)
+		.values({ entityType, entityId, content, embedding })
+		.onConflictDoUpdate({
+			target: [embeddings.entityType, embeddings.entityId],
+			set: { content, embedding }
+		});
 }
