@@ -7,20 +7,54 @@
  * default workspace.
  */
 
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type {
+	ActivityAction,
+	CreateCommentInput,
 	CreateLabelInput,
 	CreateProjectInput,
 	CreateTaskInput,
 	UpdateTaskInput
 } from '@junto/core';
 import type { Database } from './client';
-import { labels, profiles, projects, taskLabels, tasks, workspaces } from './schema';
+import {
+	activity,
+	comments,
+	labels,
+	profiles,
+	projects,
+	taskLabels,
+	tasks,
+	workspaces
+} from './schema';
 import type { Label, Project, Task, Workspace } from './schema';
 
 export interface TaskLabelLink {
 	taskId: string;
 	labelId: string;
+}
+
+/** A comment hydrated with its author's display name for the UI. */
+export interface CommentWithAuthor {
+	id: string;
+	taskId: string;
+	authorId: string;
+	authorName: string | null;
+	body: string;
+	createdAt: Date;
+}
+
+/** An activity row hydrated with its actor's display name for the feed. */
+export interface ActivityWithActor {
+	id: string;
+	workspaceId: string;
+	actorId: string | null;
+	actorName: string | null;
+	entityType: string;
+	entityId: string;
+	action: string;
+	meta: unknown;
+	createdAt: Date;
 }
 
 export async function getDefaultWorkspace(db: Database): Promise<Workspace | null> {
@@ -270,4 +304,154 @@ export async function userOwnsLabel(
 		.where(and(eq(labels.id, labelId), eq(workspaces.ownerId, userId)))
 		.limit(1);
 	return Boolean(row);
+}
+
+// ── Workspace resolvers (for scoping activity writes) ─────────────────────────
+
+/** The workspace id a project belongs to, or null if it doesn't exist. */
+export async function workspaceIdForProject(
+	db: Database,
+	projectId: string
+): Promise<string | null> {
+	const [row] = await db
+		.select({ workspaceId: projects.workspaceId })
+		.from(projects)
+		.where(eq(projects.id, projectId))
+		.limit(1);
+	return row?.workspaceId ?? null;
+}
+
+/** The workspace id a task belongs to, or null if it doesn't exist. */
+export async function workspaceIdForTask(db: Database, taskId: string): Promise<string | null> {
+	const [row] = await db
+		.select({ workspaceId: projects.workspaceId })
+		.from(tasks)
+		.innerJoin(projects, eq(tasks.projectId, projects.id))
+		.where(eq(tasks.id, taskId))
+		.limit(1);
+	return row?.workspaceId ?? null;
+}
+
+// ── Comments ──────────────────────────────────────────────────────────────────
+
+/** Every comment within a workspace (for hydrating the client), oldest first. */
+export async function listCommentsForWorkspace(
+	db: Database,
+	workspaceId: string
+): Promise<CommentWithAuthor[]> {
+	return db
+		.select({
+			id: comments.id,
+			taskId: comments.taskId,
+			authorId: comments.authorId,
+			authorName: profiles.displayName,
+			body: comments.body,
+			createdAt: comments.createdAt
+		})
+		.from(comments)
+		.innerJoin(tasks, eq(comments.taskId, tasks.id))
+		.innerJoin(projects, eq(tasks.projectId, projects.id))
+		.leftJoin(profiles, eq(comments.authorId, profiles.id))
+		.where(eq(projects.workspaceId, workspaceId))
+		.orderBy(asc(comments.createdAt));
+}
+
+export async function createComment(
+	db: Database,
+	input: CreateCommentInput & { authorId: string }
+): Promise<CommentWithAuthor> {
+	const [row] = await db
+		.insert(comments)
+		.values({
+			id: input.id,
+			taskId: input.taskId,
+			authorId: input.authorId,
+			body: input.body
+		})
+		.returning();
+	const [author] = await db
+		.select({ displayName: profiles.displayName })
+		.from(profiles)
+		.where(eq(profiles.id, row!.authorId))
+		.limit(1);
+	return {
+		id: row!.id,
+		taskId: row!.taskId,
+		authorId: row!.authorId,
+		authorName: author?.displayName ?? null,
+		body: row!.body,
+		createdAt: row!.createdAt
+	};
+}
+
+export async function deleteComment(db: Database, id: string): Promise<void> {
+	await db.delete(comments).where(eq(comments.id, id));
+}
+
+/** A user may delete a comment if it lives in a workspace they own. */
+export async function userOwnsComment(
+	db: Database,
+	userId: string,
+	commentId: string
+): Promise<boolean> {
+	const [row] = await db
+		.select({ id: comments.id })
+		.from(comments)
+		.innerJoin(tasks, eq(comments.taskId, tasks.id))
+		.innerJoin(projects, eq(tasks.projectId, projects.id))
+		.innerJoin(workspaces, eq(projects.workspaceId, workspaces.id))
+		.where(and(eq(comments.id, commentId), eq(workspaces.ownerId, userId)))
+		.limit(1);
+	return Boolean(row);
+}
+
+// ── Activity (append-only) ────────────────────────────────────────────────────
+
+export interface LogActivityInput {
+	workspaceId: string;
+	actorId: string | null;
+	entityType: string;
+	entityId: string;
+	action: ActivityAction;
+	meta?: unknown;
+}
+
+/**
+ * Append one row to the audit feed. Best-effort: callers should not fail a
+ * mutation because logging failed, so wrap calls in try/catch at the boundary.
+ */
+export async function logActivity(db: Database, input: LogActivityInput): Promise<void> {
+	await db.insert(activity).values({
+		workspaceId: input.workspaceId,
+		actorId: input.actorId,
+		entityType: input.entityType,
+		entityId: input.entityId,
+		action: input.action,
+		meta: (input.meta ?? null) as never
+	});
+}
+
+/** Recent activity for a workspace, newest first (capped). */
+export async function listActivityForWorkspace(
+	db: Database,
+	workspaceId: string,
+	limit = 100
+): Promise<ActivityWithActor[]> {
+	return db
+		.select({
+			id: activity.id,
+			workspaceId: activity.workspaceId,
+			actorId: activity.actorId,
+			actorName: profiles.displayName,
+			entityType: activity.entityType,
+			entityId: activity.entityId,
+			action: activity.action,
+			meta: activity.meta,
+			createdAt: activity.createdAt
+		})
+		.from(activity)
+		.leftJoin(profiles, eq(activity.actorId, profiles.id))
+		.where(eq(activity.workspaceId, workspaceId))
+		.orderBy(desc(activity.createdAt))
+		.limit(limit);
 }

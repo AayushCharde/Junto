@@ -1,5 +1,12 @@
 import { redirect } from '@sveltejs/kit';
-import { listLabels, listProjects, listTaskLabels, listTasksForWorkspace } from '@junto/db';
+import {
+	listActivityForWorkspace,
+	listCommentsForWorkspace,
+	listLabels,
+	listProjects,
+	listTaskLabels,
+	listTasksForWorkspace
+} from '@junto/db';
 import { getDb } from '$lib/server/db';
 import { bootstrapUser } from '$lib/server/auth';
 import type { LayoutServerLoad } from './$types';
@@ -13,11 +20,13 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	const db = getDb();
 	const workspace = await bootstrapUser(db, user);
 
-	const [projects, tasks, labels, taskLabels] = await Promise.all([
+	const [projects, tasks, labels, taskLabels, comments, activity] = await Promise.all([
 		listProjects(db, workspace.id),
 		listTasksForWorkspace(db, workspace.id),
 		listLabels(db, workspace.id),
-		listTaskLabels(db, workspace.id)
+		listTaskLabels(db, workspace.id),
+		listCommentsForWorkspace(db, workspace.id),
+		listActivityForWorkspace(db, workspace.id)
 	]);
 
 	return {
@@ -26,6 +35,8 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 		projects,
 		tasks,
 		labels,
-		taskLabels
+		taskLabels,
+		comments,
+		activity
 	};
 };

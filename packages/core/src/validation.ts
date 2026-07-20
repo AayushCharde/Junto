@@ -61,3 +61,15 @@ export const taskLabelSchema = z.object({
 	labelId: z.string().uuid()
 });
 export type TaskLabelInput = z.infer<typeof taskLabelSchema>;
+
+/**
+ * A comment on a task. `authorId` is never taken from the client — the server
+ * fills it from the authenticated session. The client may supply `id` so
+ * optimistic UI + Realtime reconcile by id, like tasks and labels.
+ */
+export const createCommentSchema = z.object({
+	id: z.string().uuid().optional(),
+	taskId: z.string().uuid(),
+	body: z.string().trim().min(1).max(10000)
+});
+export type CreateCommentInput = z.infer<typeof createCommentSchema>;

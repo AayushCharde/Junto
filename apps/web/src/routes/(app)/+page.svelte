@@ -6,6 +6,7 @@
 	import PriorityIcon from '$lib/components/priority-icon.svelte';
 	import { STATUS_COLOR } from '$lib/tracker-meta';
 	import { formatDue, isOverdue } from '$lib/due';
+	import { describeActivity, formatRelative } from '$lib/activity';
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import CircleDot from '@lucide/svelte/icons/circle-dot';
 	import Inbox from '@lucide/svelte/icons/inbox';
@@ -30,6 +31,14 @@
 		{ label: 'Done', value: store.doneCount, icon: CircleCheck, tint: 'text-emerald-400' },
 		{ label: 'Overdue', value: overdueCount, icon: TriangleAlert, tint: 'text-red-400' }
 	]);
+
+	const recentActivity = $derived(store.recentActivity.slice(0, 10));
+
+	function activityTaskTitle(entityId: string, metaTitle: unknown): string {
+		const t = store.tasks.find((task) => task.id === entityId);
+		if (t) return t.title;
+		return typeof metaTitle === 'string' ? metaTitle : 'a task';
+	}
 
 	let greeting = $state('Welcome back');
 	onMount(() => {
@@ -173,5 +182,29 @@
 				</div>
 			{/if}
 		</section>
+
+		<!-- Recent activity -->
+		{#if recentActivity.length > 0}
+			<section>
+				<h3 class="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+					Recent activity
+				</h3>
+				<div class="border-border divide-border bg-card divide-y overflow-hidden rounded-xl border">
+					{#each recentActivity as item (item.id)}
+						<div class="flex items-center gap-2.5 px-4 py-2.5 text-sm">
+							<span class="bg-border size-1.5 shrink-0 rounded-full"></span>
+							<span class="text-foreground/80 shrink-0 font-medium">{item.actorName ?? 'Someone'}</span>
+							<span class="text-muted-foreground">{describeActivity(item)}</span>
+							<span class="min-w-0 flex-1 truncate">
+								{activityTaskTitle(item.entityId, item.meta?.title)}
+							</span>
+							<span class="text-muted-foreground shrink-0 text-xs">
+								{formatRelative(item.createdAt)}
+							</span>
+						</div>
+					{/each}
+				</div>
+			</section>
+		{/if}
 	</div>
 </div>

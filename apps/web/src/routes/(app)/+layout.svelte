@@ -9,10 +9,14 @@
 		new TrackerStore({
 			workspaceId: data.workspace?.id ?? null,
 			workspaceName: data.workspace?.name ?? 'Workspace',
+			currentUserId: data.user?.id ?? null,
+			currentUserName: data.user?.email ?? null,
 			projects: data.projects,
 			tasks: data.tasks,
 			labels: data.labels,
-			taskLabels: data.taskLabels
+			taskLabels: data.taskLabels,
+			comments: data.comments,
+			activity: data.activity
 		})
 	);
 

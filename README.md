@@ -4,9 +4,10 @@ A personal, keyboard-first task tracker (a Huly/Linear-style replacement) plus a
 MCP server so tasks can be created and managed directly from Claude. 100% free to
 run, 100% open-source, single Supabase Postgres database.
 
-> **Status: Phase 0 complete — foundation only.** The monorepo, database schema,
-> RLS policies, first migration, seed script, and a Cloudflare-ready SvelteKit app
-> are wired up. There are no tracker features yet; those begin in Phase 1.
+> **Status: Phase 4 complete.** The tracker (Phase 1), auth + RLS (Phase 2),
+> metadata — labels/subtasks/due dates/drag-ordering/filters (Phase 3), and
+> comments + an activity feed (Phase 4) are all wired up. Next: the ⌘K speed
+> layer (Phase 5). See the build roadmap below.
 
 ## Stack
 
@@ -125,11 +126,11 @@ Your app will be live at `https://junto-web.<your-subdomain>.workers.dev`.
 
 ## Build roadmap
 
-- **Phase 0 — Foundation** ✅ (this commit)
-- **Phase 1 — The tracker**: projects, tasks, board + list views, optimistic UI, Realtime
-- **Phase 2 — Auth & RLS**: magic-link, enforce RLS, migrate seeded data to real user
-- **Phase 3 — Metadata**: labels, subtasks, due dates, drag-ordering, filters
-- **Phase 4 — Comments & activity**
+- **Phase 0 — Foundation** ✅
+- **Phase 1 — The tracker**: projects, tasks, board + list views, optimistic UI, Realtime ✅
+- **Phase 2 — Auth & RLS**: magic-link, enforce RLS, migrate seeded data to real user ✅
+- **Phase 3 — Metadata**: labels, subtasks, due dates, drag-ordering, filters ✅
+- **Phase 4 — Comments & activity** ✅
 - **Phase 5 — Speed layer**: ⌘K command palette + keyboard shortcuts
 - **Phase 6 — MCP server**: `apps/mcp`, bearer auth, connect to Claude
 - **Phase 7 — Search & AI**: Postgres FTS, then pgvector + local Ollama
