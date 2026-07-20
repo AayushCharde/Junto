@@ -9,6 +9,7 @@
 	} from '@junto/core';
 	import { Button } from '$lib/components/ui/button';
 	import { getTracker, type Task } from '$lib/state/tracker.svelte';
+	import { describeActivity, formatRelative } from '$lib/activity';
 	import Check from '@lucide/svelte/icons/check';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -26,9 +27,17 @@
 	let dueDate = $state('');
 	let newSubtask = $state('');
 	let newLabel = $state('');
+	let newComment = $state('');
 
 	// Live views from the store (react to Realtime + local mutations).
 	const subtasks = $derived(task ? store.subtasksOf(task.id) : []);
+	const comments = $derived(task ? store.commentsForTask(task.id) : []);
+	const activity = $derived(task ? store.activityForTask(task.id) : []);
+
+	function initials(name: string | null): string {
+		const s = (name ?? '?').trim();
+		return s ? s[0].toUpperCase() : '?';
+	}
 
 	$effect(() => {
 		if (task) {
@@ -66,6 +75,12 @@
 		const id = await store.createLabel(newLabel);
 		newLabel = '';
 		if (id) store.toggleTaskLabel(task.id, id);
+	}
+
+	function addComment() {
+		if (!task || !newComment.trim()) return;
+		store.addComment(task.id, newComment);
+		newComment = '';
 	}
 
 	const fieldClass =
@@ -204,6 +219,70 @@
 					/>
 				</div>
 			</div>
+
+			<!-- Comments -->
+			<div class="flex flex-col gap-2 border-t pt-3">
+				<span class="text-muted-foreground text-xs font-medium">
+					Comments
+					{#if comments.length > 0}<span class="ml-1">{comments.length}</span>{/if}
+				</span>
+				{#each comments as comment (comment.id)}
+					<div class="group/comment flex items-start gap-2">
+						<span
+							class="bg-muted text-muted-foreground mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium"
+						>
+							{initials(comment.authorName)}
+						</span>
+						<div class="min-w-0 flex-1">
+							<div class="flex items-baseline gap-2">
+								<span class="truncate text-xs font-medium">{comment.authorName ?? 'Someone'}</span>
+								<span class="text-muted-foreground shrink-0 text-xs">
+									{formatRelative(comment.createdAt)}
+								</span>
+							</div>
+							<p class="text-sm break-words whitespace-pre-wrap">{comment.body}</p>
+						</div>
+						<button
+							type="button"
+							onclick={() => store.deleteComment(comment.id)}
+							class="text-muted-foreground hover:text-destructive mt-0.5 opacity-0 group-hover/comment:opacity-100"
+							aria-label="Delete comment"
+						>
+							<X class="size-3.5" />
+						</button>
+					</div>
+				{/each}
+				<div class="flex items-start gap-2">
+					<textarea
+						bind:value={newComment}
+						placeholder="Write a comment…  (⌘/Ctrl+Enter to send)"
+						rows="2"
+						onkeydown={(e) => {
+							if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+								e.preventDefault();
+								addComment();
+							}
+						}}
+						class="{fieldClass} resize-y py-1.5"
+					></textarea>
+					<Button variant="outline" size="sm" onclick={addComment}>Send</Button>
+				</div>
+			</div>
+
+			<!-- Activity -->
+			{#if activity.length > 0}
+				<div class="flex flex-col gap-2 border-t pt-3">
+					<span class="text-muted-foreground text-xs font-medium">Activity</span>
+					{#each activity as item (item.id)}
+						<div class="text-muted-foreground flex items-center gap-2 text-xs">
+							<span class="bg-border size-1.5 shrink-0 rounded-full"></span>
+							<span class="text-foreground/80 font-medium">{item.actorName ?? 'Someone'}</span>
+							<span>{describeActivity(item)}</span>
+							<span class="ml-auto shrink-0">{formatRelative(item.createdAt)}</span>
+						</div>
+					{/each}
+				</div>
+			{/if}
 
 			<div class="flex items-center justify-between border-t pt-3">
 				<Button

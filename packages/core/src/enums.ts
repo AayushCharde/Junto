@@ -31,6 +31,21 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
 export const TASK_STATUS_ORDER: TaskStatus[] = [...TASK_STATUSES];
 export const TASK_PRIORITY_ORDER: TaskPriority[] = ['urgent', 'high', 'medium', 'low', 'none'];
 
+/**
+ * Activity-feed verbs. The append-only `activity` table stores these as free
+ * text; keeping the vocabulary here means the server that writes them and the
+ * UI that renders them can never drift. `meta` (jsonb) carries action-specific
+ * detail, e.g. `{ from, to }` for a status change.
+ */
+export const ACTIVITY_ACTIONS = [
+	'created',
+	'status_changed',
+	'updated',
+	'deleted',
+	'commented'
+] as const;
+export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
+
 export function isTaskStatus(value: unknown): value is TaskStatus {
 	return typeof value === 'string' && (TASK_STATUSES as readonly string[]).includes(value);
 }

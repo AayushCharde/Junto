@@ -41,6 +41,37 @@ export interface TaskLabelLink {
 	labelId: string;
 }
 
+export interface Comment {
+	id: string;
+	taskId: string;
+	authorId: string;
+	authorName: string | null;
+	body: string;
+	createdAt: string;
+}
+
+export interface ActivityItem {
+	id: string;
+	actorId: string | null;
+	actorName: string | null;
+	entityType: string;
+	entityId: string;
+	action: string;
+	meta: Record<string, unknown> | null;
+	createdAt: string;
+}
+
+/**
+ * Server-load DTO shapes for hydration. They differ from the client types only
+ * in wire representation: timestamps arrive as `Date` (or string), `meta` as
+ * `unknown`. The constructor normalizes them via `mapComment`/`mapActivity`.
+ */
+type CommentInput = Omit<Comment, 'createdAt'> & { createdAt: string | Date };
+type ActivityInput = Omit<ActivityItem, 'meta' | 'createdAt'> & {
+	meta: unknown;
+	createdAt: string | Date;
+};
+
 export type View = 'board' | 'list';
 
 export interface ProjectStats {
@@ -97,11 +128,43 @@ function mapLink(raw: Record<string, unknown>): TaskLabelLink {
 	};
 }
 
+function ts(v: unknown): string {
+	if (v instanceof Date) return v.toISOString();
+	return str(v);
+}
+
+function mapComment(raw: Record<string, unknown>): Comment {
+	return {
+		id: str(raw.id),
+		taskId: str(raw.taskId ?? raw.task_id),
+		authorId: str(raw.authorId ?? raw.author_id),
+		authorName: (raw.authorName as string | null) ?? null,
+		body: str(raw.body),
+		createdAt: ts(raw.createdAt ?? raw.created_at)
+	};
+}
+
+function mapActivity(raw: Record<string, unknown>): ActivityItem {
+	const meta = raw.meta;
+	return {
+		id: str(raw.id),
+		actorId: (raw.actorId as string | null) ?? (raw.actor_id as string | null) ?? null,
+		actorName: (raw.actorName as string | null) ?? null,
+		entityType: str(raw.entityType ?? raw.entity_type),
+		entityId: str(raw.entityId ?? raw.entity_id),
+		action: str(raw.action),
+		meta: (meta && typeof meta === 'object' ? (meta as Record<string, unknown>) : null),
+		createdAt: ts(raw.createdAt ?? raw.created_at)
+	};
+}
+
 export class TrackerStore {
 	projects = $state<Project[]>([]);
 	tasks = $state<Task[]>([]);
 	labels = $state<Label[]>([]);
 	taskLabels = $state<TaskLabelLink[]>([]);
+	comments = $state<Comment[]>([]);
+	activity = $state<ActivityItem[]>([]);
 	view = $state<View>('board');
 
 	// Filters (project-view scoped, session-only).
@@ -110,24 +173,38 @@ export class TrackerStore {
 
 	readonly workspaceId: string | null;
 	readonly workspaceName: string;
+	readonly currentUserId: string | null;
+	readonly currentUserName: string | null;
 	#supabase: SupabaseClient | null = null;
 	#channel: RealtimeChannel | null = null;
 
 	constructor(init: {
 		workspaceId: string | null;
 		workspaceName?: string;
+		currentUserId?: string | null;
+		currentUserName?: string | null;
 		projects: Project[];
 		tasks: Task[];
 		labels?: Label[];
 		taskLabels?: TaskLabelLink[];
+		comments?: CommentInput[];
+		activity?: ActivityInput[];
 	}) {
 		this.workspaceId = init.workspaceId;
 		this.workspaceName = init.workspaceName ?? 'Workspace';
+		this.currentUserId = init.currentUserId ?? null;
+		this.currentUserName = init.currentUserName ?? null;
 		this.projects = init.projects.map((p) => mapProject(p as unknown as Record<string, unknown>));
 		this.tasks = init.tasks.map((t) => mapTask(t as unknown as Record<string, unknown>));
 		this.labels = (init.labels ?? []).map((l) => mapLabel(l as unknown as Record<string, unknown>));
 		this.taskLabels = (init.taskLabels ?? []).map((l) =>
 			mapLink(l as unknown as Record<string, unknown>)
+		);
+		this.comments = (init.comments ?? []).map((c) =>
+			mapComment(c as unknown as Record<string, unknown>)
+		);
+		this.activity = (init.activity ?? []).map((a) =>
+			mapActivity(a as unknown as Record<string, unknown>)
 		);
 	}
 
@@ -180,6 +257,29 @@ export class TrackerStore {
 	labelsForTask(taskId: string): Label[] {
 		const ids = new Set(this.taskLabels.filter((l) => l.taskId === taskId).map((l) => l.labelId));
 		return this.labels.filter((l) => ids.has(l.id));
+	}
+
+	/** Comments on a task, oldest first. */
+	commentsForTask(taskId: string): Comment[] {
+		return this.comments
+			.filter((c) => c.taskId === taskId)
+			.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+	}
+
+	commentCount(taskId: string): number {
+		return this.comments.reduce((n, c) => (c.taskId === taskId ? n + 1 : n), 0);
+	}
+
+	/** Activity for a single task (its own events), newest first. */
+	activityForTask(taskId: string): ActivityItem[] {
+		return this.activity
+			.filter((a) => a.entityType === 'task' && a.entityId === taskId)
+			.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+	}
+
+	/** Workspace-wide feed, newest first (for the Home dashboard). */
+	get recentActivity(): ActivityItem[] {
+		return [...this.activity].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 	}
 
 	projectStats(projectId: string): ProjectStats {
@@ -331,15 +431,19 @@ export class TrackerStore {
 	async deleteTask(id: string): Promise<void> {
 		const prevTasks = this.tasks;
 		const prevLinks = this.taskLabels;
-		// Remove the task, its subtasks, and any label links.
+		const prevComments = this.comments;
+		// Remove the task, its subtasks, and any label links + comments.
+		const subIds = new Set(this.tasks.filter((t) => t.parentTaskId === id).map((t) => t.id));
 		this.tasks = this.tasks.filter((t) => t.id !== id && t.parentTaskId !== id);
-		this.taskLabels = this.taskLabels.filter((l) => l.taskId !== id);
+		this.taskLabels = this.taskLabels.filter((l) => l.taskId !== id && !subIds.has(l.taskId));
+		this.comments = this.comments.filter((c) => c.taskId !== id && !subIds.has(c.taskId));
 		try {
 			const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
 			if (!res.ok && res.status !== 204) throw new Error('delete task failed');
 		} catch {
 			this.tasks = prevTasks;
 			this.taskLabels = prevLinks;
+			this.comments = prevComments;
 		}
 	}
 
@@ -423,6 +527,46 @@ export class TrackerStore {
 		}
 	}
 
+	// ── Comment mutations (optimistic) ───────────────────────────────────────
+
+	async addComment(taskId: string, body: string): Promise<void> {
+		const trimmed = body.trim();
+		if (!taskId || !trimmed) return;
+		const id = crypto.randomUUID();
+		const optimistic: Comment = {
+			id,
+			taskId,
+			authorId: this.currentUserId ?? '',
+			authorName: this.currentUserName,
+			body: trimmed,
+			// Sortable ISO timestamp; reconciled with the server's on success.
+			createdAt: new Date().toISOString()
+		};
+		this.comments.push(optimistic);
+		try {
+			const res = await fetch(`/api/tasks/${taskId}/comments`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ id, taskId, body: trimmed })
+			});
+			if (!res.ok) throw new Error('create comment failed');
+			this.#upsertComment(mapComment(await res.json()));
+		} catch {
+			this.comments = this.comments.filter((c) => c.id !== id);
+		}
+	}
+
+	async deleteComment(id: string): Promise<void> {
+		const prev = this.comments;
+		this.comments = this.comments.filter((c) => c.id !== id);
+		try {
+			const res = await fetch(`/api/comments/${id}`, { method: 'DELETE' });
+			if (!res.ok && res.status !== 204) throw new Error('delete comment failed');
+		} catch {
+			this.comments = prev;
+		}
+	}
+
 	// ── Realtime ─────────────────────────────────────────────────────────────
 
 	startRealtime(): void {
@@ -449,6 +593,14 @@ export class TrackerStore {
 				if (p.eventType === 'DELETE') this.#removeLink(mapLink(p.old as Record<string, unknown>));
 				else this.#addLink(mapLink(p.new as Record<string, unknown>));
 			})
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, (p) => {
+				if (p.eventType === 'DELETE')
+					this.#removeComment(str((p.old as Record<string, unknown>).id));
+				else this.#upsertComment(mapComment(p.new as Record<string, unknown>));
+			})
+			.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity' }, (p) => {
+				this.#addActivity(mapActivity(p.new as Record<string, unknown>));
+			})
 			.subscribe();
 	}
 
@@ -469,6 +621,7 @@ export class TrackerStore {
 	#removeTask(id: string): void {
 		this.tasks = this.tasks.filter((t) => t.id !== id && t.parentTaskId !== id);
 		this.taskLabels = this.taskLabels.filter((l) => l.taskId !== id);
+		this.comments = this.comments.filter((c) => c.taskId !== id);
 	}
 
 	#upsertProject(project: Project): void {
@@ -500,6 +653,29 @@ export class TrackerStore {
 		this.taskLabels = this.taskLabels.filter(
 			(l) => !(l.taskId === link.taskId && l.labelId === link.labelId)
 		);
+	}
+
+	#resolveActorName(id: string | null, given: string | null): string | null {
+		// Realtime payloads carry no joined profile name; fill the current user's.
+		if (given) return given;
+		if (id && id === this.currentUserId) return this.currentUserName;
+		return null;
+	}
+
+	#upsertComment(comment: Comment): void {
+		const resolved = { ...comment, authorName: this.#resolveActorName(comment.authorId, comment.authorName) };
+		const idx = this.comments.findIndex((c) => c.id === resolved.id);
+		if (idx === -1) this.comments.push(resolved);
+		else this.comments[idx] = resolved;
+	}
+
+	#removeComment(id: string): void {
+		this.comments = this.comments.filter((c) => c.id !== id);
+	}
+
+	#addActivity(item: ActivityItem): void {
+		if (this.activity.some((a) => a.id === item.id)) return;
+		this.activity.push({ ...item, actorName: this.#resolveActorName(item.actorId, item.actorName) });
 	}
 }
 

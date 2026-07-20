@@ -4,6 +4,7 @@
 	import { formatDue, isOverdue } from '$lib/due';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ListChecks from '@lucide/svelte/icons/list-checks';
+	import MessageSquare from '@lucide/svelte/icons/message-square';
 
 	let {
 		task,
@@ -24,6 +25,7 @@
 	const store = getTracker();
 	const labels = $derived(store.labelsForTask(task.id));
 	const sub = $derived(store.subtaskProgress(task.id));
+	const commentCount = $derived(store.commentCount(task.id));
 	const overdue = $derived(isOverdue(task.dueDate));
 </script>
 
@@ -71,6 +73,12 @@
 			<span class="flex items-center gap-1">
 				<ListChecks class="size-3" />
 				{sub.done}/{sub.total}
+			</span>
+		{/if}
+		{#if commentCount > 0}
+			<span class="flex items-center gap-1">
+				<MessageSquare class="size-3" />
+				{commentCount}
 			</span>
 		{/if}
 	</div>
