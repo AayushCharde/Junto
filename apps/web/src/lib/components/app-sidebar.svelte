@@ -8,6 +8,7 @@
 	import House from '@lucide/svelte/icons/house';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Plus from '@lucide/svelte/icons/plus';
+	import Plug from '@lucide/svelte/icons/plug';
 	import Search from '@lucide/svelte/icons/search';
 
 	let { userEmail = null }: { userEmail?: string | null } = $props();
@@ -72,6 +73,17 @@
 		>
 			<House class="size-4" />
 			Home
+		</a>
+
+		<a
+			href="/mcp"
+			class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors
+				{isActive('/mcp')
+				? 'bg-accent text-accent-foreground'
+				: 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}"
+		>
+			<Plug class="size-4" />
+			MCP
 		</a>
 
 		<div class="text-muted-foreground mt-4 flex items-center justify-between px-2 py-1.5">
