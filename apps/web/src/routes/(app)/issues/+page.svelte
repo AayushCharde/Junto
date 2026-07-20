@@ -119,9 +119,17 @@
 				{#each rows as task (task.id)}
 					{@const project = store.projectById(task.projectId)}
 					{@const taskLabels = store.labelsForTask(task.id)}
-					<button
+					<div
+						role="button"
+						tabindex="0"
 						onclick={() => ui.openTask(task.id)}
-						class="border-border/60 hover:bg-accent/40 flex w-full items-center gap-3 border-b px-5 py-2 text-left transition-colors"
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								ui.openTask(task.id);
+							}
+						}}
+						class="border-border/60 hover:bg-accent/40 flex w-full cursor-pointer items-center gap-3 border-b px-5 py-2 text-left transition-colors outline-none"
 					>
 						<PriorityIcon priority={task.priority} class="size-3.5 shrink-0" />
 						<span class="min-w-0 flex-1 truncate text-sm">{task.title}</span>
@@ -146,7 +154,7 @@
 							<span class="size-2 rounded-full" style={`background:${project?.color ?? '#71717a'}`}></span>
 							{project?.name ?? ''}
 						</a>
-					</button>
+					</div>
 				{/each}
 			{/if}
 		{/each}
