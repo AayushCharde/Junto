@@ -4,11 +4,11 @@ A personal, keyboard-first task tracker (a Huly/Linear-style replacement) plus a
 MCP server so tasks can be created and managed directly from Claude. 100% free to
 run, 100% open-source, single Supabase Postgres database.
 
-> **Status: Phase 6 complete.** The tracker (Phase 1), auth + RLS (Phase 2),
+> **Status: Phase 7 complete.** The tracker (Phase 1), auth + RLS (Phase 2),
 > metadata (Phase 3), comments + activity (Phase 4), the ⌘K speed layer (Phase 5),
-> and the **MCP server** — a Cloudflare Worker exposing the tracker to Claude over
-> bearer-authenticated Streamable HTTP (Phase 6) — are all wired up. Next: search
-> & AI (Phase 7). See the build roadmap below.
+> the MCP server (Phase 6), and **search** — Postgres full-text search everywhere,
+> plus optional pgvector + local-Ollama semantic search (Phase 7) — are all wired
+> up. Next: polish & ship (Phase 8). See the build roadmap below.
 
 ## Stack
 
@@ -135,6 +135,19 @@ Then add it to Claude as a **custom connector / remote MCP server** with URL
 `Authorization: Bearer <your token>`. Tools: `list_projects`, `list_tasks`, `create_task`,
 `update_task`, `create_project`. Tasks created via Claude stream into the web UI live (Realtime).
 
+## Search (Phase 7)
+
+Task search powers the ⌘K palette via `GET /api/search`.
+
+- **Full-text search** (default, everywhere): a Postgres `tsvector` generated column on `tasks`
+  (title weighted above description) with a GIN index, queried with `websearch_to_tsquery`. Enabled
+  by migration `0005` — run `pnpm db:migrate`.
+- **Semantic search** (optional, local only): `pgvector` + a **local Ollama** (`nomic-embed-text`,
+  768-dim). Set `OLLAMA_URL`, `ollama pull nomic-embed-text`, then `pnpm db:embed` to backfill
+  vectors; `GET /api/search?mode=semantic` then uses cosine similarity (HNSW index). Because
+  Cloudflare Workers can't reach a local Ollama, semantic mode is unavailable in the deployed app
+  and **transparently falls back to FTS** — it's for local dev / self-hosting.
+
 ## Scripts (run from repo root)
 
 | Command             | Description                                        |
@@ -145,6 +158,7 @@ Then add it to Claude as a **custom connector / remote MCP server** with URL
 | `pnpm db:generate`  | Generate a new Drizzle migration from the schema   |
 | `pnpm db:migrate`   | Apply pending migrations                            |
 | `pnpm db:seed`      | Seed the default user/workspace/project            |
+| `pnpm db:embed`     | Backfill task embeddings via local Ollama (Phase 7)|
 | `pnpm db:studio`    | Open Drizzle Studio                                |
 | `pnpm db:push`      | Push schema directly (dev shortcut; prefer migrate)|
 | `pnpm mcp:dev`      | Run the MCP server Worker locally (`wrangler dev`) |
@@ -159,5 +173,5 @@ Then add it to Claude as a **custom connector / remote MCP server** with URL
 - **Phase 4 — Comments & activity** ✅
 - **Phase 5 — Speed layer**: ⌘K command palette + keyboard shortcuts ✅
 - **Phase 6 — MCP server**: `apps/mcp`, bearer auth, connect to Claude ✅
-- **Phase 7 — Search & AI**: Postgres FTS, then pgvector + local Ollama
+- **Phase 7 — Search & AI**: Postgres FTS, then pgvector + local Ollama ✅
 - **Phase 8 — Polish & ship**: PWA, production deploy, keep-alive cron
