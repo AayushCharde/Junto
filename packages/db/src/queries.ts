@@ -59,6 +59,11 @@ export interface ActivityWithActor {
 	createdAt: Date;
 }
 
+/** Trivial round-trip to keep a paused-on-idle database warm (Phase 8 cron). */
+export async function pingDb(db: Database): Promise<void> {
+	await db.execute(sql`select 1`);
+}
+
 export async function getDefaultWorkspace(db: Database): Promise<Workspace | null> {
 	const [ws] = await db
 		.select()

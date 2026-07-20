@@ -7,11 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A personal, keyboard-first task tracker (Linear/Huly-style) plus an MCP server so tasks can be
 managed from Claude. Single Supabase Postgres DB, deployed to Cloudflare Workers, 100% open-source.
 
-Development follows a numbered phase roadmap (see README "Build roadmap"). Completed: Phase 1
-(tracker), Phase 2 (auth + RLS), Phase 3 (labels, subtasks, due dates, drag-ordering, filters).
-Next: Phase 4 (comments & activity). The `comments`, `activity`, and `embeddings` tables already
-exist in the schema but are dormant until their phase. **The README's "Status: Phase 0" header is
-stale — trust the git log and this file.**
+Development followed a numbered phase roadmap (see README "Build roadmap"), now **complete through
+Phase 8**: tracker (1), auth + RLS (2), metadata (3), comments + activity (4), ⌘K speed layer (5),
+MCP server (6), search — FTS + pgvector/Ollama (7), and PWA + keep-alive cron (8).
 
 ## Commands
 
@@ -146,3 +144,10 @@ add a `_journal.json` entry, and copy the latest snapshot — don't rely on `db:
   the `(app)` layout and driven by `UiState`.
 - Cloudflare Workers: create one Drizzle client **per request** (`getDb()`), never module-scoped;
   `prepare: false` is required for the transaction pooler.
+- **PWA (Phase 8)**: `src/service-worker.ts` is auto-registered by SvelteKit in production only;
+  it precaches `[...build, ...files]`, is network-first for navigations with an offline fallback,
+  and never touches `/api` or `/auth`. Manifest + icon live in `static/`.
+- **Keep-alive (Phase 8)**: the *MCP* Worker owns the Cron Trigger (`wrangler.jsonc` → `triggers.crons`);
+  its `scheduled` handler calls `pingDb` (`select 1`) so free-tier Supabase doesn't pause. Deploying
+  `apps/mcp` keeps the whole stack warm — the SvelteKit adapter doesn't expose a `scheduled` hook,
+  which is why the cron lives here rather than in the web Worker.

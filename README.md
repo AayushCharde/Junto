@@ -4,11 +4,11 @@ A personal, keyboard-first task tracker (a Huly/Linear-style replacement) plus a
 MCP server so tasks can be created and managed directly from Claude. 100% free to
 run, 100% open-source, single Supabase Postgres database.
 
-> **Status: Phase 7 complete.** The tracker (Phase 1), auth + RLS (Phase 2),
-> metadata (Phase 3), comments + activity (Phase 4), the ⌘K speed layer (Phase 5),
-> the MCP server (Phase 6), and **search** — Postgres full-text search everywhere,
-> plus optional pgvector + local-Ollama semantic search (Phase 7) — are all wired
-> up. Next: polish & ship (Phase 8). See the build roadmap below.
+> **Status: Phase 8 complete — all phases shipped.** The full roadmap is done:
+> the tracker (1), auth + RLS (2), metadata (3), comments + activity (4), the ⌘K
+> speed layer (5), the MCP server (6), search (7), and polish & ship — installable
+> **PWA** with an offline shell, and a **keep-alive cron** that stops the free-tier
+> Supabase project from pausing (8). See the build roadmap below.
 
 ## Stack
 
@@ -111,6 +111,20 @@ pnpm --filter @junto/web exec wrangler deploy
 
 Your app will be live at `https://junto-web.<your-subdomain>.workers.dev`.
 
+### PWA
+
+The web app is an installable PWA: a web manifest (`static/manifest.webmanifest`) + a service
+worker (`src/service-worker.ts`, auto-registered by SvelteKit in production) that precaches the
+versioned build + static assets and serves a network-first shell with an offline fallback. API and
+auth routes are never cached. Visit the deployed URL and use the browser's "Install app".
+
+### Keep-alive (free-tier Supabase)
+
+Supabase pauses a free project after ~a week of inactivity. The **MCP Worker** carries a daily Cron
+Trigger (`06:00 UTC`) whose `scheduled` handler runs a trivial `select 1` to keep the database warm.
+Deploying `apps/mcp` (`pnpm mcp:deploy`) is therefore enough to keep the whole stack alive — no
+extra service needed. (Cloudflare Workers themselves never sleep.)
+
 ## MCP server (connect the tracker to Claude)
 
 `apps/mcp` is a separate Cloudflare Worker that exposes the tracker to Claude over the Model
@@ -174,4 +188,4 @@ Task search powers the ⌘K palette via `GET /api/search`.
 - **Phase 5 — Speed layer**: ⌘K command palette + keyboard shortcuts ✅
 - **Phase 6 — MCP server**: `apps/mcp`, bearer auth, connect to Claude ✅
 - **Phase 7 — Search & AI**: Postgres FTS, then pgvector + local Ollama ✅
-- **Phase 8 — Polish & ship**: PWA, production deploy, keep-alive cron
+- **Phase 8 — Polish & ship**: PWA, production deploy, keep-alive cron ✅
