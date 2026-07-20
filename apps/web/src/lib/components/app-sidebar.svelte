@@ -40,7 +40,7 @@
 
 <aside class="border-border bg-sidebar flex w-60 shrink-0 flex-col border-r">
 	<div class="border-border flex h-12 items-center gap-2 border-b px-4">
-		<Logo class="size-6 shrink-0" />
+		<Logo class="size-8 shrink-0" />
 		<span class="truncate text-sm font-semibold tracking-tight">{store.workspaceName}</span>
 	</div>
 

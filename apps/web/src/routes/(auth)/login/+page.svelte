@@ -39,9 +39,9 @@
 
 		<!-- top: wordmark + badge -->
 		<div class="relative z-10 flex items-center justify-between">
-			<div class="flex items-center gap-2.5">
-				<Logo class="size-8" />
-				<span class="text-lg font-semibold tracking-tight">Junto</span>
+			<div class="flex items-center gap-3">
+				<Logo class="size-11" />
+				<span class="text-xl font-semibold tracking-tight">Junto</span>
 			</div>
 			<span class="badge">100% open source</span>
 		</div>
@@ -96,8 +96,8 @@
 	<!-- ── Form panel ──────────────────────────────────────────────── -->
 	<main class="flex items-center justify-center px-6 py-12">
 		<div class="w-full max-w-sm">
-			<div class="mb-8 flex items-center gap-2 lg:hidden">
-				<Logo class="size-7" />
+			<div class="mb-8 flex items-center gap-2.5 lg:hidden">
+				<Logo class="size-9" />
 				<span class="text-lg font-semibold tracking-tight">Junto</span>
 			</div>
 
