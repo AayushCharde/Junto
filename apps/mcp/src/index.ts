@@ -136,15 +136,20 @@ export default {
 			return new Response('Not found', { status: 404, headers: CORS });
 		}
 
-		// Health check / discovery for humans hitting the URL in a browser.
-		if (request.method === 'GET') {
+		// Human-facing health page at the root only.
+		if (request.method === 'GET' && url.pathname === '/') {
 			return new Response('Junto MCP server — POST JSON-RPC to /mcp with a Bearer token.', {
 				status: 200,
 				headers: CORS
 			});
 		}
+		// This server is stateless (no server→client SSE stream), so per the
+		// Streamable HTTP spec a GET on the MCP endpoint is Method Not Allowed.
 		if (request.method !== 'POST') {
-			return new Response('Method not allowed', { status: 405, headers: CORS });
+			return new Response('Method not allowed', {
+				status: 405,
+				headers: { Allow: 'POST', ...CORS }
+			});
 		}
 
 		// Bearer auth is the trust boundary for the whole server.
