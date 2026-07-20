@@ -9,6 +9,7 @@ dist/
 .wrangler/
 .vercel/
 .output/
+worker-configuration.d.ts
 
 # env & secrets — NEVER commit these
 .env

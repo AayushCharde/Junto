@@ -11,6 +11,8 @@
     "dev": "pnpm --filter @junto/web dev",
     "build": "pnpm --filter @junto/web build",
     "preview": "pnpm --filter @junto/web preview",
+    "mcp:dev": "pnpm --filter @junto/mcp dev",
+    "mcp:deploy": "pnpm --filter @junto/mcp deploy",
     "check": "pnpm -r check",
     "db:generate": "pnpm --filter @junto/db generate",
     "db:migrate": "pnpm --filter @junto/db migrate",

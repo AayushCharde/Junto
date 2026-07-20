@@ -1,0 +1,12 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "junto-mcp",
+	"compatibility_date": "2026-07-10",
+	// nodejs_compat is required for postgres.js (the Drizzle client in @junto/db).
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "src/index.ts",
+	"workers_dev": true,
+	"preview_urls": true
+	// Secrets (set with `wrangler secret put`): DATABASE_URL, MCP_BEARER_TOKEN,
+	// and optionally MCP_WORKSPACE_ID.
+}
