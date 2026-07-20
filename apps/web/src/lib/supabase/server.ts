@@ -18,8 +18,16 @@ export function createSupabaseServerClient(event: RequestEvent) {
 			cookies: {
 				getAll: () => event.cookies.getAll(),
 				setAll: (cookiesToSet) => {
+					// "Keep me signed in" (set at login): when off, drop maxAge/expires
+					// so auth cookies become session cookies — cleared on browser close.
+					const sessionOnly = event.cookies.get('junto-remember') === '0';
 					for (const { name, value, options } of cookiesToSet) {
-						event.cookies.set(name, value, { ...options, path: '/' });
+						const opts = { ...options, path: '/' };
+						if (sessionOnly) {
+							delete opts.maxAge;
+							delete opts.expires;
+						}
+						event.cookies.set(name, value, opts);
 					}
 				}
 			}
