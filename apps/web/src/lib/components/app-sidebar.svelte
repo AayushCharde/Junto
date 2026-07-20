@@ -2,14 +2,17 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { getTracker } from '$lib/state/tracker.svelte';
+	import { getUi } from '$lib/state/ui.svelte';
 	import PaletteToggle from '$lib/components/palette-toggle.svelte';
 	import House from '@lucide/svelte/icons/house';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Plus from '@lucide/svelte/icons/plus';
+	import Search from '@lucide/svelte/icons/search';
 
 	let { userEmail = null }: { userEmail?: string | null } = $props();
 
 	const store = getTracker();
+	const ui = getUi();
 
 	const initials = $derived((userEmail ?? '?').slice(0, 2).toUpperCase());
 
@@ -42,7 +45,25 @@
 		<span class="truncate text-sm font-semibold tracking-tight">{store.workspaceName}</span>
 	</div>
 
-	<nav class="flex-1 overflow-y-auto p-2">
+	<div class="flex items-center gap-1.5 p-2">
+		<button
+			onclick={() => ui.newTask({ projectId: store.projects[0]?.id ?? null })}
+			class="bg-primary text-primary-foreground hover:bg-primary/90 flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors"
+		>
+			<Plus class="size-4" /> New task
+		</button>
+		<button
+			onclick={() => ui.toggleCommand()}
+			aria-label="Search (⌘K)"
+			title="Search — ⌘K"
+			class="text-muted-foreground hover:bg-accent/50 hover:text-foreground border-border flex items-center gap-1 rounded-md border px-2 py-1.5"
+		>
+			<Search class="size-4" />
+			<kbd class="text-[10px]">⌘K</kbd>
+		</button>
+	</div>
+
+	<nav class="flex-1 overflow-y-auto p-2 pt-0">
 		<a
 			href="/"
 			class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors

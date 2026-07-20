@@ -374,6 +374,61 @@ export class TrackerStore {
 		);
 	}
 
+	/**
+	 * Create a task with full metadata in one go (the Huly-style composer).
+	 * Posts the task, then applies any labels once the row exists server-side.
+	 * Returns the new task id, or null on failure.
+	 */
+	async createDetailedTask(input: {
+		projectId: string;
+		title: string;
+		description?: string | null;
+		status?: TaskStatus;
+		priority?: TaskPriority;
+		dueDate?: string | null;
+		labelIds?: string[];
+	}): Promise<string | null> {
+		const title = input.title.trim();
+		if (!input.projectId || !title) return null;
+		const id = crypto.randomUUID();
+		const sortOrder = Date.now();
+		const status = input.status ?? 'backlog';
+		const priority = input.priority ?? 'none';
+		const description = input.description?.trim() ? input.description.trim() : null;
+		const dueDate = input.dueDate || null;
+
+		const optimistic: Task = {
+			id,
+			projectId: input.projectId,
+			title,
+			description,
+			status,
+			priority,
+			assigneeId: null,
+			dueDate,
+			parentTaskId: null,
+			sortOrder
+		};
+		this.tasks.push(optimistic);
+		try {
+			const res = await fetch('/api/tasks', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ id, projectId: input.projectId, title, description, status, priority, dueDate, sortOrder })
+			});
+			if (!res.ok) throw new Error('create task failed');
+			this.#upsertTask(mapTask(await res.json()));
+		} catch {
+			this.tasks = this.tasks.filter((t) => t.id !== id);
+			return null;
+		}
+		// Apply labels after the task exists (each is its own optimistic call).
+		for (const labelId of input.labelIds ?? []) {
+			void this.toggleTaskLabel(id, labelId);
+		}
+		return id;
+	}
+
 	createSubtask(parentTaskId: string, projectId: string, title: string): Promise<void> {
 		const trimmed = title.trim();
 		if (!trimmed) return Promise.resolve();

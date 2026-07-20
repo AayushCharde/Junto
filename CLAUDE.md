@@ -55,6 +55,10 @@ domain rules and can never drift:
 2. **The client owns a single `TrackerStore`** (`lib/state/tracker.svelte.ts`), instantiated once in
    `(app)/+layout.svelte` and shared via Svelte context (`setTracker`/`getTracker`). It holds all
    `$state`, all selectors (filtering, subtask trees, dashboard aggregates), and all mutations.
+   A second context store, `UiState` (`lib/state/ui.svelte.ts`), owns *UI* state — the ⌘K command
+   palette, the Huly-style task composer, the shortcuts overlay, and which task the global editor
+   is showing (`editingTaskId`). It exists so any route or the palette can open a task / start a
+   new one without threading local component state. `TrackerStore` = data; `UiState` = surfaces.
 3. **Mutations are optimistic.** Store methods mutate local `$state` first, `fetch` a
    `/routes/api/*` endpoint, then reconcile with the server row (`#upsertTask`) — or roll back the
    snapshot on failure. Client generates the UUID (`crypto.randomUUID()`) so optimistic rows and
@@ -88,6 +92,13 @@ domain rules and can never drift:
 - **Svelte 5 runes only** (`$state`, `$props`, `$derived`) — no legacy stores for app state.
   UI primitives under `lib/components/ui` are shadcn-svelte (bits-ui + tailwind-variants).
 - Two-palette theming (`cyan`/`graphite`) is SSR-applied from a `palette` cookie in `hooks.server.ts`
-  to avoid flash; dark mode via `mode-watcher`.
+  to avoid flash. (`mode-watcher` is a dependency but is not currently mounted — the app is
+  dark-default; the palette cookie is the live theme switch.)
+- **Speed layer (Phase 5)**: global keyboard handling lives on `<svelte:window>` in
+  `(app)/+layout.svelte` (⌘K palette, `c` new task, `b`/`l` views, `g h` home, `?` help). New tasks
+  go through the Huly-style `task-composer.svelte` (title + description + inline status/priority/due/
+  label pills + "Create more"), which calls `store.createDetailedTask` (one POST for the task, then
+  label links). The command palette, composer, editor, and shortcuts overlay are all mounted once in
+  the `(app)` layout and driven by `UiState`.
 - Cloudflare Workers: create one Drizzle client **per request** (`getDb()`), never module-scoped;
   `prepare: false` is required for the transaction pooler.

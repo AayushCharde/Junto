@@ -2,7 +2,10 @@
 	import { onMount } from 'svelte';
 	import { TASK_STATUS_LABELS } from '@junto/core';
 	import { getTracker, STATUS_COLUMNS } from '$lib/state/tracker.svelte';
+	import { getUi } from '$lib/state/ui.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import StatusIcon from '$lib/components/status-icon.svelte';
+	import Plus from '@lucide/svelte/icons/plus';
 	import PriorityIcon from '$lib/components/priority-icon.svelte';
 	import { STATUS_COLOR } from '$lib/tracker-meta';
 	import { formatDue, isOverdue } from '$lib/due';
@@ -14,6 +17,7 @@
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
 	const store = getTracker();
+	const ui = getUi();
 
 	const overdueCount = $derived(
 		store.tasks.filter(
@@ -50,8 +54,11 @@
 
 <svelte:head><title>Home · Junto</title></svelte:head>
 
-<header class="border-border flex h-12 shrink-0 items-center border-b px-5">
+<header class="border-border flex h-12 shrink-0 items-center justify-between border-b px-5">
 	<h1 class="text-sm font-semibold">Home</h1>
+	<Button size="sm" onclick={() => ui.newTask({ projectId: store.projects[0]?.id ?? null })}>
+		<Plus class="size-4" /> New task
+	</Button>
 </header>
 
 <div class="flex-1 overflow-y-auto">
@@ -158,9 +165,9 @@
 				<div class="border-border divide-border bg-card divide-y overflow-hidden rounded-xl border">
 					{#each store.activeTasks.slice(0, 12) as task (task.id)}
 						{@const project = store.projectById(task.projectId)}
-						<a
-							href={`/projects/${task.projectId}`}
-							class="hover:bg-accent/40 flex items-center gap-3 px-4 py-2.5 transition-colors"
+						<button
+							onclick={() => ui.openTask(task.id)}
+							class="hover:bg-accent/40 flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors"
 						>
 							<PriorityIcon priority={task.priority} class="size-3.5 shrink-0" />
 							<StatusIcon status={task.status} class="size-3.5 shrink-0" />
@@ -177,7 +184,7 @@
 							<span class="text-muted-foreground hidden shrink-0 text-xs sm:inline">
 								{project?.name ?? ''}
 							</span>
-						</a>
+						</button>
 					{/each}
 				</div>
 			{/if}
