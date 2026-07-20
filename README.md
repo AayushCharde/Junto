@@ -4,10 +4,10 @@ A personal, keyboard-first task tracker (a Huly/Linear-style replacement) plus a
 MCP server so tasks can be created and managed directly from Claude. 100% free to
 run, 100% open-source, single Supabase Postgres database.
 
-> **Status: Phase 4 complete.** The tracker (Phase 1), auth + RLS (Phase 2),
-> metadata — labels/subtasks/due dates/drag-ordering/filters (Phase 3), and
-> comments + an activity feed (Phase 4) are all wired up. Next: the ⌘K speed
-> layer (Phase 5). See the build roadmap below.
+> **Status: Phase 5 complete.** The tracker (Phase 1), auth + RLS (Phase 2),
+> metadata (Phase 3), comments + activity (Phase 4), and the ⌘K speed layer —
+> command palette, keyboard shortcuts, and a Huly-style task composer (Phase 5)
+> — are all wired up. Next: the MCP server (Phase 6). See the build roadmap below.
 
 ## Stack
 
@@ -131,7 +131,7 @@ Your app will be live at `https://junto-web.<your-subdomain>.workers.dev`.
 - **Phase 2 — Auth & RLS**: magic-link, enforce RLS, migrate seeded data to real user ✅
 - **Phase 3 — Metadata**: labels, subtasks, due dates, drag-ordering, filters ✅
 - **Phase 4 — Comments & activity** ✅
-- **Phase 5 — Speed layer**: ⌘K command palette + keyboard shortcuts
+- **Phase 5 — Speed layer**: ⌘K command palette + keyboard shortcuts ✅
 - **Phase 6 — MCP server**: `apps/mcp`, bearer auth, connect to Claude
 - **Phase 7 — Search & AI**: Postgres FTS, then pgvector + local Ollama
 - **Phase 8 — Polish & ship**: PWA, production deploy, keep-alive cron

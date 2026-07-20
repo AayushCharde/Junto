@@ -8,8 +8,8 @@
 	} from '@junto/core';
 	import { Button } from '$lib/components/ui/button';
 	import TaskCard from '$lib/components/task-card.svelte';
-	import TaskEditor from '$lib/components/task-editor.svelte';
 	import { getTracker, STATUS_COLUMNS, type Task } from '$lib/state/tracker.svelte';
+	import { getUi } from '$lib/state/ui.svelte';
 	import StatusIcon from '$lib/components/status-icon.svelte';
 	import PriorityIcon from '$lib/components/priority-icon.svelte';
 	import { formatDue, isOverdue } from '$lib/due';
@@ -20,11 +20,11 @@
 	import X from '@lucide/svelte/icons/x';
 
 	const store = getTracker();
+	const ui = getUi();
 
 	const projectId = $derived(page.params.projectId ?? '');
 	const project = $derived(store.projectById(projectId));
 
-	let editing = $state<Task | null>(null);
 	let drafts = $state<Record<string, string>>({});
 
 	// Drag state
@@ -33,7 +33,7 @@
 	let dragOverStatus = $state<TaskStatus | null>(null);
 
 	function openTask(task: Task) {
-		editing = task;
+		ui.openTask(task.id);
 	}
 
 	function resetDrag() {
@@ -106,7 +106,11 @@
 			<span class="text-muted-foreground text-xs">{store.tasksForProject(projectId).length}</span>
 		</div>
 
-		<div class="border-border flex items-center rounded-md border p-0.5">
+		<div class="flex items-center gap-2">
+			<Button size="sm" onclick={() => ui.newTask({ projectId, status: 'backlog' })}>
+				<Plus class="size-4" /> New task
+			</Button>
+			<div class="border-border flex items-center rounded-md border p-0.5">
 			<button
 				onclick={() => store.setView('board')}
 				class="flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors
@@ -125,6 +129,7 @@
 			>
 				<ListIcon class="size-3.5" /> List
 			</button>
+			</div>
 		</div>
 	</header>
 
@@ -281,5 +286,3 @@
 		</div>
 	{/if}
 {/if}
-
-<TaskEditor task={editing} onclose={() => (editing = null)} />
