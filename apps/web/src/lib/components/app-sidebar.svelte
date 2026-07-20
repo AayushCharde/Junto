@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { getTracker } from '$lib/state/tracker.svelte';
 	import { getUi } from '$lib/state/ui.svelte';
+	import Logo from '$lib/components/logo.svelte';
 	import PaletteToggle from '$lib/components/palette-toggle.svelte';
 	import House from '@lucide/svelte/icons/house';
 	import LogOut from '@lucide/svelte/icons/log-out';
@@ -39,9 +40,7 @@
 
 <aside class="border-border bg-sidebar flex w-60 shrink-0 flex-col border-r">
 	<div class="border-border flex h-12 items-center gap-2 border-b px-4">
-		<div class="bg-primary text-primary-foreground flex size-5 items-center justify-center rounded text-xs font-bold">
-			J
-		</div>
+		<Logo class="size-6 shrink-0" />
 		<span class="truncate text-sm font-semibold tracking-tight">{store.workspaceName}</span>
 	</div>
 

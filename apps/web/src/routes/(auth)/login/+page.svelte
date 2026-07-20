@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
+	import Logo from '$lib/components/logo.svelte';
 	import Mail from '@lucide/svelte/icons/mail';
 	import Command from '@lucide/svelte/icons/command';
 	import LayoutList from '@lucide/svelte/icons/layout-list';
@@ -39,7 +40,7 @@
 		<!-- top: wordmark + badge -->
 		<div class="relative z-10 flex items-center justify-between">
 			<div class="flex items-center gap-2.5">
-				<div class="logo-mark">J</div>
+				<Logo class="size-8" />
 				<span class="text-lg font-semibold tracking-tight">Junto</span>
 			</div>
 			<span class="badge">100% open source</span>
@@ -96,7 +97,7 @@
 	<main class="flex items-center justify-center px-6 py-12">
 		<div class="w-full max-w-sm">
 			<div class="mb-8 flex items-center gap-2 lg:hidden">
-				<div class="logo-mark size-6 text-sm">J</div>
+				<Logo class="size-7" />
 				<span class="text-lg font-semibold tracking-tight">Junto</span>
 			</div>
 
@@ -235,18 +236,6 @@
 		.orb {
 			animation: none;
 		}
-	}
-
-	.logo-mark {
-		width: 1.75rem;
-		height: 1.75rem;
-		border-radius: 0.5rem;
-		display: grid;
-		place-items: center;
-		font-weight: 800;
-		color: #04140d;
-		background: linear-gradient(135deg, #34d399, var(--primary) 45%, #3b82f6);
-		box-shadow: 0 0 24px -4px color-mix(in srgb, var(--primary) 70%, transparent);
 	}
 
 	.badge {
