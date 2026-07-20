@@ -178,7 +178,7 @@
 					</button>
 					{#if menu === 'status'}
 						<div
-							class="border-border bg-popover absolute z-10 mt-1 w-44 rounded-md border p-1 shadow-lg"
+							class="border-border bg-popover absolute bottom-full z-20 mb-1 max-h-[248px] w-44 overflow-y-auto rounded-md border p-1 shadow-xl"
 						>
 							{#each TASK_STATUSES as s (s)}
 								<button
@@ -206,7 +206,7 @@
 					</button>
 					{#if menu === 'priority'}
 						<div
-							class="border-border bg-popover absolute z-10 mt-1 w-44 rounded-md border p-1 shadow-lg"
+							class="border-border bg-popover absolute bottom-full z-20 mb-1 max-h-[248px] w-44 overflow-y-auto rounded-md border p-1 shadow-xl"
 						>
 							{#each TASK_PRIORITIES as p (p)}
 								<button
@@ -267,7 +267,7 @@
 					</button>
 					{#if menu === 'labels'}
 						<div
-							class="border-border bg-popover absolute z-10 mt-1 max-h-56 w-52 overflow-y-auto rounded-md border p-1 shadow-lg"
+							class="border-border bg-popover absolute bottom-full z-20 mb-1 max-h-56 w-52 overflow-y-auto rounded-md border p-1 shadow-xl"
 						>
 							{#if store.labels.length === 0}
 								<p class="text-muted-foreground px-2 py-1.5 text-xs">No labels yet.</p>
