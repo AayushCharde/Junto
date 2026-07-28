@@ -175,19 +175,6 @@ works everywhere. **Semantic search** uses `pgvector` + a local Ollama (`nomic-e
 | `pnpm mcp:dev`     | Run the MCP Worker locally                         |
 | `pnpm mcp:deploy`  | Deploy the MCP Worker (+ keep-alive cron)          |
 
-## Build roadmap
-
-All phases complete:
-
-- ✅ **1** — The tracker: projects, tasks, board + list, optimistic UI, Realtime
-- ✅ **2** — Auth & RLS: magic-link, RLS enforcement, two-palette theming
-- ✅ **3** — Metadata: labels, subtasks, due dates, drag-ordering, filters
-- ✅ **4** — Comments & activity feed
-- ✅ **5** — Speed layer: ⌘K command palette + keyboard shortcuts + Huly-style composer
-- ✅ **6** — MCP server: bearer auth, connect to Claude & Cursor
-- ✅ **7** — Search & AI: Postgres FTS, then pgvector + local Ollama
-- ✅ **8** — Polish & ship: PWA, production deploy, keep-alive cron
-
 ## License
 
 [MIT](LICENSE) © Aayush Charde
