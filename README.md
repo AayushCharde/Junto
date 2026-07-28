@@ -1,201 +1,193 @@
+<div align="center">
+
 # Junto
 
-A personal, keyboard-first task tracker (a Huly/Linear-style replacement) plus an
-MCP server so tasks can be created and managed directly from Claude. 100% free to
-run, 100% open-source, single Supabase Postgres database.
+**A keyboard-first task tracker — with a built-in MCP server so Claude can manage your work.**
 
-> **Status: Phase 8 complete — all phases shipped.** The full roadmap is done:
-> the tracker (1), auth + RLS (2), metadata (3), comments + activity (4), the ⌘K
-> speed layer (5), the MCP server (6), search (7), and polish & ship — installable
-> **PWA** with an offline shell, and a **keep-alive cron** that stops the free-tier
-> Supabase project from pausing (8). See the build roadmap below.
+Boards, lists, subtasks, labels, comments and a ⌘K command palette — plus full-text & semantic
+search, realtime sync, and a PWA. 100% open-source, runs entirely on free tiers.
 
-## Stack
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-Svelte_5-ff3e00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-f38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)](https://supabase.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![MCP](https://img.shields.io/badge/MCP-Claude_%26_Cursor-6366f1)](#mcp--connect-claude--cursor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-a1a1aa)](LICENSE)
 
-| Concern      | Choice                                                             |
-| ------------ | ----------------------------------------------------------------- |
-| Framework    | SvelteKit · Svelte 5 (runes) · TypeScript strict                  |
-| Deploy       | Cloudflare Workers via `@sveltejs/adapter-cloudflare`             |
-| Database     | Supabase Postgres · Drizzle ORM · `pgvector` (dormant until AI)   |
-| Auth         | Supabase Auth (magic-link) — wired, enforced from Phase 2         |
-| UI           | Tailwind CSS v4 · shadcn-svelte · lucide · Inter · dark default   |
-| Realtime     | Supabase Realtime (Phase 1)                                       |
-| MCP server   | Cloudflare Worker, streamable-http `/mcp` (Phase 6)               |
-| Tooling      | pnpm workspaces · Zod                                             |
+**[Live demo](https://junto-web.junto-work.workers.dev)** · [Quick start](#quick-start) · [Architecture](#architecture) · [Connect Claude](#mcp--connect-claude--cursor)
 
-## Repository layout
+</div>
+
+![Junto sign-in](.github/assets/hero.png)
+
+> **Junto** — Spanish for *"together"*, and the name of Benjamin Franklin's 1727 club for mutual
+> improvement. It's a personal, Linear/Huly-style tracker that keeps your projects, tasks and
+> discussions in one fast, keyboard-driven space — and exposes them to AI assistants over the
+> Model Context Protocol.
+
+---
+
+## Features
+
+- **⌨️ Keyboard-first speed layer** — a ⌘K command palette (fuzzy search over actions, projects and
+  tasks) and shortcuts (`c` new task, `b`/`l` board/list, `g h` home, `?` help). A Huly-style
+  composer creates tasks with inline status/priority/due/label pills.
+- **🗂 Full tracker** — projects, tasks, **board & list** views, drag-to-reorder, subtasks, labels,
+  due dates and filters. A view-first task detail with inline editing.
+- **💬 Comments & activity** — threaded comments and an append-only activity feed per task and
+  workspace-wide.
+- **🔎 Search** — Postgres full-text search everywhere, plus optional **pgvector + local Ollama**
+  semantic search.
+- **🤖 MCP server** — a standalone Worker that lets **Claude & Cursor** list, create and update
+  tasks. Changes stream back into the UI live.
+- **⚡ Realtime & optimistic UI** — every change applies instantly and syncs across tabs/devices via
+  Supabase Realtime.
+- **🔐 Auth & RLS** — magic-link auth with Postgres Row-Level Security (defense-in-depth) and manual
+  ownership checks on every endpoint.
+- **📱 PWA** — installable, with an offline shell.
+
+## Tech stack
+
+| Concern    | Choice                                                          |
+| ---------- | --------------------------------------------------------------- |
+| Framework  | SvelteKit · Svelte 5 (runes) · TypeScript (strict)              |
+| Deploy     | Cloudflare Workers (`@sveltejs/adapter-cloudflare`)             |
+| Database   | Supabase Postgres · Drizzle ORM · `pgvector`                    |
+| Auth       | Supabase Auth (magic-link) + Row-Level Security                 |
+| UI         | Tailwind CSS v4 · shadcn-svelte · lucide · Inter · dark-default |
+| Realtime   | Supabase Realtime                                               |
+| AI / MCP   | Model Context Protocol over Streamable HTTP · local Ollama      |
+| Tooling    | pnpm workspaces · Zod                                           |
+
+## Architecture
+
+A pnpm monorepo of four workspaces. The split exists so the web app and the MCP server share
+**identical domain rules** (enums, Zod validation, DB queries) and can never drift.
 
 ```
 apps/
-  web/        # SvelteKit app (UI + app API) → Cloudflare
-  mcp/        # MCP server Worker (POST /mcp, bearer auth) → Cloudflare
+  web/     # SvelteKit app (UI + JSON API)          → Cloudflare Worker
+  mcp/     # MCP server (POST /mcp, bearer auth)     → Cloudflare Worker
 packages/
-  core/       # shared enums/types + Zod validation + task business logic
-  db/         # Drizzle schema, migrations, RLS, seed, client factories
+  core/    # framework-free enums, Zod schemas, Ollama embedding helper
+  db/      # Drizzle schema, queries, migrations, RLS, seed/embed scripts
 ```
 
-## Prerequisites
+The client owns a single optimistic store; the server loads all workspace data once, mutations hit
+`/api/*`, and Supabase Realtime reconciles. RLS is enforced in Postgres, but because the app's
+Drizzle connection bypasses it, **every endpoint authorizes ownership manually**. A deeper tour
+lives in [`CLAUDE.md`](CLAUDE.md).
 
-- **Node ≥ 20** (developed on Node 24).
-- **pnpm** — `corepack enable pnpm` (or install any 10/11.x).
-- A free **Supabase** account and a free **Cloudflare** account.
+## Quick start
 
-## One-time setup
-
-### 1. Install dependencies
+**Prerequisites:** Node ≥ 20, `pnpm` (`corepack enable pnpm`), and free Supabase + Cloudflare accounts.
 
 ```bash
 pnpm install
+cp .env.example .env        # fill in Supabase URL/keys + DATABASE_URL (transaction pooler, :6543)
+pnpm db:migrate             # apply migrations
+pnpm db:seed                # seed default workspace + Inbox project
+pnpm dev                    # → http://localhost:5173
 ```
 
-### 2. Create a free Supabase project
+Run `pnpm check` (type-check + svelte-check across every package) before committing. See
+[`.env.example`](.env.example) for every variable; a single repo-root `.env` serves both the web app
+and DB tooling.
 
-1. https://supabase.com → **New project** (free tier). Pick a region near you and
-   set a database password.
-2. In the dashboard, collect:
-   - **Project Settings → API**: `Project URL`, `anon` public key, `service_role` key.
-   - **Project Settings → Database → Connection string**: use the
-     **Transaction pooler** URI (port `6543`) for the app; the direct connection
-     (`5432`) is fine for local migrate/seed.
-   - `pgvector` is created automatically by the first migration
-     (`CREATE EXTENSION IF NOT EXISTS "vector"`).
+## Deployment
 
-### 3. Configure environment
-
-Copy the example and fill in your values:
+Both apps deploy as Cloudflare Workers; Supabase hosts the database.
 
 ```bash
-cp .env.example .env
-```
-
-A single repo-root `.env` serves **both** the web app (via Vite `envDir`) and the
-DB tooling. See `.env.example` for every variable. For the Cloudflare
-`wrangler dev` preview only, also `cp apps/web/.dev.vars.example apps/web/.dev.vars`.
-
-### 4. Create the schema and seed the default user
-
-```bash
-pnpm db:migrate   # applies packages/db/drizzle/*.sql to your database
-pnpm db:seed      # creates the pre-auth default user + "Personal" workspace + "Inbox" project
-```
-
-> RLS policies live in `packages/db/src/rls.sql`. They are **not** applied yet —
-> they are enforced starting in Phase 2 (auth). Until then the app runs against
-> the seeded default data via a direct Drizzle connection.
-
-### 5. Run locally
-
-```bash
-pnpm dev          # SvelteKit dev server (http://localhost:5173)
-```
-
-## Deploy to Cloudflare
-
-The web app deploys as a Cloudflare Worker (config in `apps/web/wrangler.jsonc`,
-`nodejs_compat` enabled for postgres.js).
-
-```bash
-# from apps/web — first time, authenticate:
+# authenticate once
 pnpm --filter @junto/web exec wrangler login
 
-# set production secrets (repeat for each):
+# web app — set secrets, then deploy
 pnpm --filter @junto/web exec wrangler secret put DATABASE_URL
+pnpm --filter @junto/web exec wrangler secret put SUPABASE_URL
 pnpm --filter @junto/web exec wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 pnpm --filter @junto/web exec wrangler secret put PUBLIC_SUPABASE_URL
 pnpm --filter @junto/web exec wrangler secret put PUBLIC_SUPABASE_ANON_KEY
+pnpm build && pnpm --filter @junto/web exec wrangler deploy
 
-# build + deploy:
-pnpm --filter @junto/web build
-pnpm --filter @junto/web exec wrangler deploy
-```
-
-Your app will be live at `https://junto-web.<your-subdomain>.workers.dev`.
-
-### PWA
-
-The web app is an installable PWA: a web manifest (`static/manifest.webmanifest`) + a service
-worker (`src/service-worker.ts`, auto-registered by SvelteKit in production) that precaches the
-versioned build + static assets and serves a network-first shell with an offline fallback. API and
-auth routes are never cached. Visit the deployed URL and use the browser's "Install app".
-
-### Keep-alive (free-tier Supabase)
-
-Supabase pauses a free project after ~a week of inactivity, which takes the whole app **and** the
-MCP server offline (the project's API subdomain stops resolving). Two independent guards keep it
-awake — enable either or both:
-
-1. **GitHub Actions (easiest — no deploy).** `.github/workflows/keepalive.yml` pings the project
-   once a day. Add two repository secrets (**Settings → Secrets and variables → Actions**):
-   `SUPABASE_URL` and `SUPABASE_ANON_KEY`, then trigger it once from the **Actions** tab to confirm
-   it's green. Works as soon as it's on the default branch.
-2. **MCP Worker Cron.** The `apps/mcp` Worker carries a daily Cron Trigger whose `scheduled` handler
-   runs a trivial `select 1`. Deploying it (`pnpm mcp:deploy`) keeps the DB warm and also enables
-   Claude/Cursor. Watch it with `wrangler tail` (logs `[keep-alive] db ping ok`).
-
-> If the project is **already paused**, resume it first in the Supabase dashboard — a keep-alive
-> only prevents *future* pauses; it can't wake a project that's already down.
-
-## MCP server (connect the tracker to Claude)
-
-`apps/mcp` is a separate Cloudflare Worker that exposes the tracker to Claude over the Model
-Context Protocol (Streamable HTTP, `POST /mcp`). It reuses the same schema and queries as the web
-app and is authenticated with a single **bearer token**.
-
-```bash
-# local dev:
-cp apps/mcp/.dev.vars.example apps/mcp/.dev.vars   # fill in DATABASE_URL + MCP_BEARER_TOKEN
-pnpm mcp:dev                                        # http://localhost:8787/mcp
-
-# deploy:
+# MCP server — set secrets, then deploy (also registers the keep-alive cron)
 pnpm --filter @junto/mcp exec wrangler secret put DATABASE_URL
 pnpm --filter @junto/mcp exec wrangler secret put MCP_BEARER_TOKEN   # e.g. `openssl rand -hex 32`
-# optional — pin the workspace (defaults to the oldest one):
-pnpm --filter @junto/mcp exec wrangler secret put MCP_WORKSPACE_ID
 pnpm mcp:deploy
 ```
 
-Then add it to Claude as a **custom connector / remote MCP server** with URL
-`https://junto-mcp.<your-subdomain>.workers.dev/mcp` and header
-`Authorization: Bearer <your token>`. Tools: `list_projects`, `list_tasks`, `create_task`,
-`update_task`, `create_project`. Tasks created via Claude stream into the web UI live (Realtime).
+**Keep-alive (free-tier Supabase).** Free projects pause after ~a week idle. Two guards, use either:
+the MCP Worker's daily Cron Trigger (`select 1`, comes with `pnpm mcp:deploy`), or a GitHub
+Actions workflow at `.github/workflows/keepalive.yml` (add `SUPABASE_URL` + `SUPABASE_ANON_KEY`
+repo secrets — no deploy needed).
 
-## Search (Phase 7)
+## MCP — connect Claude & Cursor
 
-Task search powers the ⌘K palette via `GET /api/search`.
+The `apps/mcp` Worker speaks the Model Context Protocol over Streamable HTTP at `POST /mcp`,
+authenticated by a single bearer token. Tools: `list_projects`, `list_tasks`, `create_task`,
+`update_task`, `create_project`. The in-app **MCP** tab generates ready-to-paste config.
 
-- **Full-text search** (default, everywhere): a Postgres `tsvector` generated column on `tasks`
-  (title weighted above description) with a GIN index, queried with `websearch_to_tsquery`. Enabled
-  by migration `0005` — run `pnpm db:migrate`.
-- **Semantic search** (optional, local only): `pgvector` + a **local Ollama** (`nomic-embed-text`,
-  768-dim). Set `OLLAMA_URL`, `ollama pull nomic-embed-text`, then `pnpm db:embed` to backfill
-  vectors; `GET /api/search?mode=semantic` then uses cosine similarity (HNSW index). Because
-  Cloudflare Workers can't reach a local Ollama, semantic mode is unavailable in the deployed app
-  and **transparently falls back to FTS** — it's for local dev / self-hosting.
+**Cursor** — `~/.cursor/mcp.json`:
 
-## Scripts (run from repo root)
+```jsonc
+{
+  "mcpServers": {
+    "junto": {
+      "url": "https://<your-worker>.workers.dev/mcp",
+      "headers": { "Authorization": "Bearer YOUR_MCP_BEARER_TOKEN" }
+    }
+  }
+}
+```
 
-| Command             | Description                                        |
-| ------------------- | -------------------------------------------------- |
-| `pnpm dev`          | Start the web dev server                           |
-| `pnpm build`        | Production build of the web app (Cloudflare)       |
-| `pnpm check`        | Type-check every workspace package                 |
-| `pnpm db:generate`  | Generate a new Drizzle migration from the schema   |
-| `pnpm db:migrate`   | Apply pending migrations                            |
-| `pnpm db:seed`      | Seed the default user/workspace/project            |
-| `pnpm db:embed`     | Backfill task embeddings via local Ollama (Phase 7)|
-| `pnpm db:studio`    | Open Drizzle Studio                                |
-| `pnpm db:push`      | Push schema directly (dev shortcut; prefer migrate)|
-| `pnpm mcp:dev`      | Run the MCP server Worker locally (`wrangler dev`) |
-| `pnpm mcp:deploy`   | Deploy the MCP server Worker to Cloudflare          |
+**Claude Desktop** — `claude_desktop_config.json` (via `mcp-remote`, which bridges the remote
+server + bearer header):
+
+```jsonc
+{
+  "mcpServers": {
+    "junto": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://<your-worker>.workers.dev/mcp",
+               "--header", "Authorization: Bearer YOUR_MCP_BEARER_TOKEN"]
+    }
+  }
+}
+```
+
+## Search
+
+`GET /api/search` powers the ⌘K palette. **Full-text search** (a Postgres `tsvector` + GIN index)
+works everywhere. **Semantic search** uses `pgvector` + a local Ollama (`nomic-embed-text`); run
+`pnpm db:embed` to backfill, and it transparently falls back to FTS where Ollama isn't reachable
+(e.g. the deployed edge).
+
+## Scripts
+
+| Command            | Description                                        |
+| ------------------ | -------------------------------------------------- |
+| `pnpm dev`         | Web dev server                                     |
+| `pnpm build`       | Production build (Cloudflare adapter)              |
+| `pnpm check`       | Type-check every workspace                         |
+| `pnpm db:migrate`  | Apply pending migrations                           |
+| `pnpm db:seed`     | Seed default user/workspace/project                |
+| `pnpm db:embed`    | Backfill task embeddings via local Ollama          |
+| `pnpm mcp:dev`     | Run the MCP Worker locally                         |
+| `pnpm mcp:deploy`  | Deploy the MCP Worker (+ keep-alive cron)          |
 
 ## Build roadmap
 
-- **Phase 0 — Foundation** ✅
-- **Phase 1 — The tracker**: projects, tasks, board + list views, optimistic UI, Realtime ✅
-- **Phase 2 — Auth & RLS**: magic-link, enforce RLS, migrate seeded data to real user ✅
-- **Phase 3 — Metadata**: labels, subtasks, due dates, drag-ordering, filters ✅
-- **Phase 4 — Comments & activity** ✅
-- **Phase 5 — Speed layer**: ⌘K command palette + keyboard shortcuts ✅
-- **Phase 6 — MCP server**: `apps/mcp`, bearer auth, connect to Claude ✅
-- **Phase 7 — Search & AI**: Postgres FTS, then pgvector + local Ollama ✅
-- **Phase 8 — Polish & ship**: PWA, production deploy, keep-alive cron ✅
+All phases complete:
+
+- ✅ **1** — The tracker: projects, tasks, board + list, optimistic UI, Realtime
+- ✅ **2** — Auth & RLS: magic-link, RLS enforcement, two-palette theming
+- ✅ **3** — Metadata: labels, subtasks, due dates, drag-ordering, filters
+- ✅ **4** — Comments & activity feed
+- ✅ **5** — Speed layer: ⌘K command palette + keyboard shortcuts + Huly-style composer
+- ✅ **6** — MCP server: bearer auth, connect to Claude & Cursor
+- ✅ **7** — Search & AI: Postgres FTS, then pgvector + local Ollama
+- ✅ **8** — Polish & ship: PWA, production deploy, keep-alive cron
+
+## License
+
+[MIT](LICENSE) © Aayush Charde
