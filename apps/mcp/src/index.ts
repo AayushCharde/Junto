@@ -189,8 +189,10 @@ export default {
 			(async () => {
 				try {
 					await pingDb(createDb(env.DATABASE_URL));
-				} catch {
-					/* best-effort keep-alive */
+					console.log('[keep-alive] db ping ok');
+				} catch (err) {
+					// Best-effort — surfaced in `wrangler tail` so a dead ping is visible.
+					console.error('[keep-alive] db ping failed:', err instanceof Error ? err.message : err);
 				}
 			})()
 		);

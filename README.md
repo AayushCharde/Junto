@@ -120,10 +120,20 @@ auth routes are never cached. Visit the deployed URL and use the browser's "Inst
 
 ### Keep-alive (free-tier Supabase)
 
-Supabase pauses a free project after ~a week of inactivity. The **MCP Worker** carries a daily Cron
-Trigger (`06:00 UTC`) whose `scheduled` handler runs a trivial `select 1` to keep the database warm.
-Deploying `apps/mcp` (`pnpm mcp:deploy`) is therefore enough to keep the whole stack alive — no
-extra service needed. (Cloudflare Workers themselves never sleep.)
+Supabase pauses a free project after ~a week of inactivity, which takes the whole app **and** the
+MCP server offline (the project's API subdomain stops resolving). Two independent guards keep it
+awake — enable either or both:
+
+1. **GitHub Actions (easiest — no deploy).** `.github/workflows/keepalive.yml` pings the project
+   once a day. Add two repository secrets (**Settings → Secrets and variables → Actions**):
+   `SUPABASE_URL` and `SUPABASE_ANON_KEY`, then trigger it once from the **Actions** tab to confirm
+   it's green. Works as soon as it's on the default branch.
+2. **MCP Worker Cron.** The `apps/mcp` Worker carries a daily Cron Trigger whose `scheduled` handler
+   runs a trivial `select 1`. Deploying it (`pnpm mcp:deploy`) keeps the DB warm and also enables
+   Claude/Cursor. Watch it with `wrangler tail` (logs `[keep-alive] db ping ok`).
+
+> If the project is **already paused**, resume it first in the Supabase dashboard — a keep-alive
+> only prevents *future* pauses; it can't wake a project that's already down.
 
 ## MCP server (connect the tracker to Claude)
 
