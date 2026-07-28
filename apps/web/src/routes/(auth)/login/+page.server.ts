@@ -32,17 +32,23 @@ export const actions: Actions = {
 		});
 
 		if (error) {
-			// Supabase throttles magic-link emails (esp. the built-in sender). Show a
-			// calm, actionable message instead of the raw "email rate limit exceeded".
+			const msg = error.message ?? '';
+			// Supabase throttles magic-link emails (esp. the built-in sender)…
 			const rateLimited =
-				error.status === 429 ||
-				error.code === 'over_email_send_rate_limit' ||
-				/rate limit/i.test(error.message);
-			return fail(rateLimited ? 429 : 400, {
+				error.status === 429 || error.code === 'over_email_send_rate_limit' || /rate limit/i.test(msg);
+			// …and the whole project is unreachable if it's paused/offline (the auth
+			// host stops resolving → "fetch failed" with status 0).
+			const unreachable =
+				!rateLimited &&
+				(error.status === 0 || /fetch failed|failed to fetch|network|ENOTFOUND|ETIMEDOUT/i.test(msg));
+
+			return fail(rateLimited ? 429 : unreachable ? 503 : 400, {
 				email,
 				message: rateLimited
 					? "Too many sign-in emails just now. Wait a minute and try again — and check your inbox, a link we already sent may be waiting."
-					: error.message
+					: unreachable
+						? "Can't reach the server right now. Check your connection and try again in a moment — if it keeps failing, the database may be paused."
+						: msg
 			});
 		}
 
