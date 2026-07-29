@@ -41,7 +41,10 @@
 	}
 </script>
 
-<aside class="border-border bg-sidebar flex w-60 shrink-0 flex-col border-r">
+<aside
+	class="border-border bg-sidebar fixed inset-y-0 left-0 z-40 flex w-60 shrink-0 -translate-x-full flex-col border-r transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0"
+	class:translate-x-0={ui.sidebarOpen}
+>
 	<div class="border-border flex h-12 items-center gap-2 border-b px-4">
 		<Logo class="size-8 shrink-0" />
 		<span class="truncate text-sm font-semibold tracking-tight">{store.workspaceName}</span>

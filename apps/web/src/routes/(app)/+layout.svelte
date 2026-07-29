@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
 	import CommandPalette from '$lib/components/command-palette.svelte';
 	import TaskComposer from '$lib/components/task-composer.svelte';
 	import TaskEditor from '$lib/components/task-editor.svelte';
 	import ShortcutsHelp from '$lib/components/shortcuts-help.svelte';
+	import Logo from '$lib/components/logo.svelte';
+	import Menu from '@lucide/svelte/icons/menu';
 	import { setTracker, TrackerStore } from '$lib/state/tracker.svelte';
 	import { setUi, UiState } from '$lib/state/ui.svelte';
 
@@ -39,6 +41,9 @@
 		store.startRealtime();
 		return () => store.stopRealtime();
 	});
+
+	// Close the mobile drawer whenever we navigate.
+	afterNavigate(() => ui.closeSidebar());
 
 	function isTyping(target: EventTarget | null): boolean {
 		const el = target as HTMLElement | null;
@@ -103,7 +108,32 @@
 
 <div class="flex h-screen overflow-hidden">
 	<AppSidebar userEmail={data.user?.email ?? null} />
+
+	<!-- Mobile overlay when the drawer is open -->
+	{#if ui.sidebarOpen}
+		<button
+			type="button"
+			aria-label="Close menu"
+			class="fixed inset-0 z-30 bg-black/50 lg:hidden"
+			onclick={() => ui.closeSidebar()}
+		></button>
+	{/if}
+
 	<div class="flex min-w-0 flex-1 flex-col">
+		<!-- Mobile top bar with hamburger (hidden on desktop) -->
+		<div class="border-border flex h-12 shrink-0 items-center gap-2 border-b px-3 lg:hidden">
+			<button
+				type="button"
+				aria-label="Open menu"
+				onclick={() => ui.toggleSidebar()}
+				class="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md p-1.5"
+			>
+				<Menu class="size-5" />
+			</button>
+			<Logo class="size-6" />
+			<span class="truncate text-sm font-semibold tracking-tight">{store.workspaceName}</span>
+		</div>
+
 		{@render children()}
 	</div>
 </div>

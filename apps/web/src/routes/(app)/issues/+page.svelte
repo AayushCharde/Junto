@@ -27,6 +27,17 @@
 
 	const hasFilters = $derived(query.trim() !== '' || priority !== '' || projectId !== '');
 
+	const PAGE = 25;
+	// How many rows to show per status group; reset whenever the filters change.
+	let shown = $state<Record<string, number>>({});
+	$effect(() => {
+		// Touch the filters so this re-runs on any change, then reset the caps.
+		query;
+		priority;
+		projectId;
+		shown = {};
+	});
+
 	// All top-level tasks across every project, after the local filters.
 	const filtered = $derived.by(() => {
 		const q = query.trim().toLowerCase();
@@ -109,6 +120,7 @@
 	{:else}
 		{#each STATUS_COLUMNS as status (status)}
 			{@const rows = forStatus(status)}
+			{@const limit = shown[status] ?? PAGE}
 			{#if rows.length > 0}
 				<div
 					class="text-muted-foreground bg-muted/40 sticky top-0 flex items-center gap-2 px-5 py-1.5 text-xs font-medium backdrop-blur"
@@ -117,7 +129,7 @@
 					{TASK_STATUS_LABELS[status]}
 					<span class="tabular-nums">{rows.length}</span>
 				</div>
-				{#each rows as task (task.id)}
+				{#each rows.slice(0, limit) as task (task.id)}
 					{@const project = store.projectById(task.projectId)}
 					{@const taskLabels = store.labelsForTask(task.id)}
 					<div
@@ -160,6 +172,15 @@
 						</a>
 					</div>
 				{/each}
+				{#if rows.length > limit}
+					<button
+						type="button"
+						onclick={() => (shown = { ...shown, [status]: limit + PAGE })}
+						class="text-muted-foreground hover:text-foreground hover:bg-accent/40 w-full border-b px-5 py-2 text-left text-xs"
+					>
+						Show {Math.min(PAGE, rows.length - limit)} more of {rows.length}…
+					</button>
+				{/if}
 			{/if}
 		{/each}
 	{/if}
