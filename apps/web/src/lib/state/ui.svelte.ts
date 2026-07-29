@@ -18,6 +18,8 @@ export interface ComposerSeed {
 export class UiState {
 	commandOpen = $state(false);
 	shortcutsOpen = $state(false);
+	/** Mobile off-canvas sidebar (below lg). Ignored on desktop. */
+	sidebarOpen = $state(false);
 	/** Task currently open in the editor (by id), or null. */
 	editingTaskId = $state<string | null>(null);
 	/** When set, the create-task composer is open, seeded with these defaults. */
@@ -33,6 +35,14 @@ export class UiState {
 
 	toggleShortcuts() {
 		this.shortcutsOpen = !this.shortcutsOpen;
+	}
+
+	toggleSidebar() {
+		this.sidebarOpen = !this.sidebarOpen;
+	}
+
+	closeSidebar() {
+		this.sidebarOpen = false;
 	}
 
 	openTask(id: string) {

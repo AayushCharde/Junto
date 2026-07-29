@@ -33,6 +33,14 @@
 
 	let drafts = $state<Record<string, string>>({});
 
+	// Cap cards per status group; "Show more" reveals the rest. Reset per project.
+	const CARD_PAGE = 50;
+	let shown = $state<Record<string, number>>({});
+	$effect(() => {
+		projectId; // re-run when switching projects
+		shown = {};
+	});
+
 	// Project management (rename / archive / delete)
 	let menuOpen = $state(false);
 	let renaming = $state(false);
@@ -237,6 +245,8 @@
 	{#if store.view === 'board'}
 		<div class="flex flex-1 gap-3 overflow-x-auto p-4">
 			{#each STATUS_COLUMNS as status (status)}
+				{@const colRows = store.tasksByStatus(projectId, status)}
+				{@const colLimit = shown[status] ?? CARD_PAGE}
 				<section
 					class="flex w-72 shrink-0 flex-col rounded-lg transition-colors
 						{dragOverStatus === status ? 'bg-accent/40' : ''}"
@@ -263,7 +273,7 @@
 					</div>
 
 					<div class="flex min-h-2 flex-col gap-2 px-0.5">
-						{#each store.tasksByStatus(projectId, status) as task (task.id)}
+						{#each colRows.slice(0, colLimit) as task (task.id)}
 							<TaskCard
 								{task}
 								onopen={openTask}
@@ -273,6 +283,15 @@
 								indicator={dropTargetId === task.id}
 							/>
 						{/each}
+						{#if colRows.length > colLimit}
+							<button
+								type="button"
+								onclick={() => (shown = { ...shown, [status]: colLimit + CARD_PAGE })}
+								class="text-muted-foreground hover:text-foreground hover:bg-accent/40 rounded-md px-2 py-1.5 text-xs"
+							>
+								Show {Math.min(CARD_PAGE, colRows.length - colLimit)} more…
+							</button>
+						{/if}
 					</div>
 
 					<input
@@ -302,6 +321,7 @@
 
 			{#each STATUS_COLUMNS as status (status)}
 				{@const rows = store.tasksByStatus(projectId, status)}
+				{@const limit = shown[status] ?? CARD_PAGE}
 				{#if rows.length > 0}
 					<div
 						class="text-muted-foreground bg-muted/40 flex items-center gap-2 px-5 py-1.5 text-xs font-medium"
@@ -310,7 +330,7 @@
 						{TASK_STATUS_LABELS[status]}
 						<span class="tabular-nums">{rows.length}</span>
 					</div>
-					{#each rows as task (task.id)}
+					{#each rows.slice(0, limit) as task (task.id)}
 						{@const taskLabels = store.labelsForTask(task.id)}
 						<button
 							onclick={() => openTask(task)}
@@ -337,6 +357,15 @@
 							{/if}
 						</button>
 					{/each}
+					{#if rows.length > limit}
+						<button
+							type="button"
+							onclick={() => (shown = { ...shown, [status]: limit + CARD_PAGE })}
+							class="text-muted-foreground hover:text-foreground hover:bg-accent/40 w-full border-b px-5 py-2 text-left text-xs"
+						>
+							Show {Math.min(CARD_PAGE, rows.length - limit)} more of {rows.length}…
+						</button>
+					{/if}
 				{/if}
 			{/each}
 

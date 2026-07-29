@@ -188,6 +188,11 @@
 	</div>
 </div>
 
+<!-- Click-away to dismiss the label color picker -->
+{#if coloringId}
+	<button type="button" aria-label="Close color picker" class="fixed inset-0 z-10 cursor-default" onclick={() => (coloringId = null)}></button>
+{/if}
+
 <ConfirmDialog
 	bind:open={confirmOpen}
 	title="Delete label?"

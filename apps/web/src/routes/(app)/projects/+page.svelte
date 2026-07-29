@@ -96,7 +96,7 @@
 					<div class="border-border bg-card relative rounded-xl border p-4">
 						<div class="flex items-center gap-2">
 							{#if coloringId === project.id}
-								<div class="flex flex-wrap items-center gap-1.5">
+								<div class="relative z-20 flex flex-wrap items-center gap-1.5">
 									{#each COLORS as c (c)}
 										<button
 											type="button"
@@ -203,9 +203,12 @@
 	</div>
 </div>
 
-<!-- Click-away to close an open card menu -->
+<!-- Click-away to close an open card menu / color picker -->
 {#if menuFor}
 	<button type="button" aria-label="Close menu" class="fixed inset-0 z-10 cursor-default" onclick={() => (menuFor = null)}></button>
+{/if}
+{#if coloringId}
+	<button type="button" aria-label="Close color picker" class="fixed inset-0 z-10 cursor-default" onclick={() => (coloringId = null)}></button>
 {/if}
 
 <ConfirmDialog
