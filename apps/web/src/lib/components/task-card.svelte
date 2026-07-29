@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getTracker, type Task } from '$lib/state/tracker.svelte';
 	import PriorityIcon from '$lib/components/priority-icon.svelte';
+	import NameTag from '$lib/components/name-tag.svelte';
 	import { formatDue, isOverdue } from '$lib/due';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ListChecks from '@lucide/svelte/icons/list-checks';
@@ -80,6 +81,9 @@
 				<MessageSquare class="size-3" />
 				{commentCount}
 			</span>
+		{/if}
+		{#if task.assigneeId}
+			<span class="ml-auto"><NameTag name={store.memberName(task.assigneeId)} showName={false} /></span>
 		{/if}
 	</div>
 </div>

@@ -172,9 +172,10 @@ export class TrackerStore {
 	filterLabelId = $state<string | null>(null);
 
 	readonly workspaceId: string | null;
-	readonly workspaceName: string;
+	workspaceName = $state('Workspace');
 	readonly currentUserId: string | null;
-	readonly currentUserName: string | null;
+	/** Display name for the current user (falls back to email). Used for name tags. */
+	currentUserName = $state<string | null>(null);
 	#supabase: SupabaseClient | null = null;
 	#channel: RealtimeChannel | null = null;
 
@@ -212,6 +213,26 @@ export class TrackerStore {
 
 	projectById(id: string): Project | null {
 		return this.projects.find((p) => p.id === id) ?? null;
+	}
+
+	get activeProjects(): Project[] {
+		return this.projects.filter((p) => !p.archived);
+	}
+
+	get archivedProjects(): Project[] {
+		return this.projects.filter((p) => p.archived);
+	}
+
+	/** Assignable people. Single-user for now: just the current user. */
+	get members(): { id: string; name: string }[] {
+		if (!this.currentUserId) return [];
+		return [{ id: this.currentUserId, name: this.currentUserName ?? 'You' }];
+	}
+
+	memberName(id: string | null): string | null {
+		if (!id) return null;
+		if (id === this.currentUserId) return this.currentUserName ?? 'You';
+		return null;
 	}
 
 	get hasActiveFilters(): boolean {
@@ -386,6 +407,7 @@ export class TrackerStore {
 		status?: TaskStatus;
 		priority?: TaskPriority;
 		dueDate?: string | null;
+		assigneeId?: string | null;
 		labelIds?: string[];
 	}): Promise<string | null> {
 		const title = input.title.trim();
@@ -396,6 +418,7 @@ export class TrackerStore {
 		const priority = input.priority ?? 'none';
 		const description = input.description?.trim() ? input.description.trim() : null;
 		const dueDate = input.dueDate || null;
+		const assigneeId = input.assigneeId ?? null;
 
 		const optimistic: Task = {
 			id,
@@ -404,7 +427,7 @@ export class TrackerStore {
 			description,
 			status,
 			priority,
-			assigneeId: null,
+			assigneeId,
 			dueDate,
 			parentTaskId: null,
 			sortOrder
@@ -414,7 +437,7 @@ export class TrackerStore {
 			const res = await fetch('/api/tasks', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ id, projectId: input.projectId, title, description, status, priority, dueDate, sortOrder })
+				body: JSON.stringify({ id, projectId: input.projectId, title, description, status, priority, dueDate, assigneeId, sortOrder })
 			});
 			if (!res.ok) throw new Error('create task failed');
 			this.#upsertTask(mapTask(await res.json()));
@@ -454,7 +477,7 @@ export class TrackerStore {
 	async updateTask(
 		id: string,
 		patch: Partial<
-			Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'dueDate' | 'sortOrder'>
+			Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'dueDate' | 'assigneeId' | 'sortOrder'>
 		>
 	): Promise<void> {
 		const idx = this.tasks.findIndex((t) => t.id === id);
@@ -523,6 +546,93 @@ export class TrackerStore {
 		}
 	}
 
+	async updateProject(
+		id: string,
+		patch: Partial<Pick<Project, 'name' | 'color' | 'archived'>>
+	): Promise<void> {
+		const idx = this.projects.findIndex((p) => p.id === id);
+		if (idx === -1) return;
+		const prev = this.projects[idx];
+		this.projects[idx] = { ...prev, ...patch };
+		try {
+			const res = await fetch(`/api/projects/${id}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(patch)
+			});
+			if (!res.ok) throw new Error('update project failed');
+			this.#upsertProject(mapProject(await res.json()));
+		} catch {
+			const i = this.projects.findIndex((p) => p.id === id);
+			if (i !== -1) this.projects[i] = prev;
+		}
+	}
+
+	/** Delete a project and everything under it (tasks cascade server-side). */
+	async deleteProject(id: string): Promise<boolean> {
+		const prevProjects = this.projects;
+		const prevTasks = this.tasks;
+		const prevLinks = this.taskLabels;
+		const prevComments = this.comments;
+		const taskIds = new Set(this.tasks.filter((t) => t.projectId === id).map((t) => t.id));
+		this.projects = this.projects.filter((p) => p.id !== id);
+		this.tasks = this.tasks.filter((t) => t.projectId !== id);
+		this.taskLabels = this.taskLabels.filter((l) => !taskIds.has(l.taskId));
+		this.comments = this.comments.filter((c) => !taskIds.has(c.taskId));
+		try {
+			const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+			if (!res.ok && res.status !== 204) throw new Error('delete project failed');
+			return true;
+		} catch {
+			this.projects = prevProjects;
+			this.tasks = prevTasks;
+			this.taskLabels = prevLinks;
+			this.comments = prevComments;
+			return false;
+		}
+	}
+
+	/** Rename the workspace (optimistic). */
+	async updateWorkspaceName(name: string): Promise<void> {
+		const trimmed = name.trim();
+		if (!this.workspaceId || !trimmed || trimmed === this.workspaceName) return;
+		const prev = this.workspaceName;
+		this.workspaceName = trimmed;
+		try {
+			const res = await fetch(`/api/workspace/${this.workspaceId}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ name: trimmed })
+			});
+			if (!res.ok) throw new Error('rename workspace failed');
+		} catch {
+			this.workspaceName = prev;
+		}
+	}
+
+	/** Set the current user's display name, used for name tags (optimistic). */
+	async updateProfileName(name: string): Promise<void> {
+		const trimmed = name.trim();
+		if (!trimmed) return;
+		const prev = this.currentUserName;
+		this.currentUserName = trimmed;
+		try {
+			const res = await fetch('/api/profile', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ displayName: trimmed })
+			});
+			if (!res.ok) throw new Error('update profile failed');
+		} catch {
+			this.currentUserName = prev;
+		}
+	}
+
+	/** Assign a task to a member (or null to unassign). */
+	assignTask(taskId: string, assigneeId: string | null): Promise<void> {
+		return this.updateTask(taskId, { assigneeId });
+	}
+
 	async createLabel(name: string, color: string | null = null): Promise<string | null> {
 		const trimmed = name.trim();
 		if (!this.workspaceId || !trimmed) return null;
@@ -540,6 +650,28 @@ export class TrackerStore {
 		} catch {
 			this.labels = this.labels.filter((l) => l.id !== id);
 			return null;
+		}
+	}
+
+	async updateLabel(
+		id: string,
+		patch: Partial<Pick<Label, 'name' | 'color'>>
+	): Promise<void> {
+		const idx = this.labels.findIndex((l) => l.id === id);
+		if (idx === -1) return;
+		const prev = this.labels[idx];
+		this.labels[idx] = { ...prev, ...patch };
+		try {
+			const res = await fetch(`/api/labels/${id}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(patch)
+			});
+			if (!res.ok) throw new Error('update label failed');
+			this.#upsertLabel(mapLabel(await res.json()));
+		} catch {
+			const i = this.labels.findIndex((l) => l.id === id);
+			if (i !== -1) this.labels[i] = prev;
 		}
 	}
 

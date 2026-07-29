@@ -10,6 +10,7 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import Plug from '@lucide/svelte/icons/plug';
 	import ListTodo from '@lucide/svelte/icons/list-todo';
+	import Settings from '@lucide/svelte/icons/settings';
 	import Search from '@lucide/svelte/icons/search';
 
 	let { userEmail = null }: { userEmail?: string | null } = $props();
@@ -98,8 +99,19 @@
 			MCP
 		</a>
 
+		<a
+			href="/settings"
+			class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors
+				{isActive('/settings')
+				? 'bg-accent text-accent-foreground'
+				: 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'}"
+		>
+			<Settings class="size-4" />
+			Settings
+		</a>
+
 		<div class="text-muted-foreground mt-4 flex items-center justify-between px-2 py-1.5">
-			<span class="text-xs font-medium tracking-wide uppercase">Projects</span>
+			<a href="/projects" class="hover:text-foreground text-xs font-medium tracking-wide uppercase">Projects</a>
 			<button
 				class="hover:text-foreground rounded p-0.5"
 				aria-label="New project"
@@ -109,7 +121,7 @@
 			</button>
 		</div>
 
-		{#each store.projects as project (project.id)}
+		{#each store.activeProjects as project (project.id)}
 			{@const active = store.projectStats(project.id).active}
 			<a
 				href={`/projects/${project.id}`}

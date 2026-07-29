@@ -11,6 +11,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import StatusIcon from '$lib/components/status-icon.svelte';
 	import PriorityIcon from '$lib/components/priority-icon.svelte';
+	import NameTag from '$lib/components/name-tag.svelte';
 	import { getTracker } from '$lib/state/tracker.svelte';
 	import { getUi } from '$lib/state/ui.svelte';
 	import { formatDue } from '$lib/due';
@@ -44,6 +45,7 @@
 	let priority = $state<TaskPriority>('none');
 	let dueDate = $state('');
 	let labelIds = $state<string[]>([]);
+	let assigneeId = $state<string | null>(null);
 	let createMore = $state(false);
 	let saving = $state(false);
 
@@ -59,6 +61,7 @@
 		priority = 'none';
 		dueDate = '';
 		labelIds = [];
+		assigneeId = null;
 		menu = null;
 	}
 
@@ -76,6 +79,7 @@
 				priority = 'none';
 				dueDate = '';
 				labelIds = [];
+				assigneeId = null;
 				menu = null;
 				if (dialog && !dialog.open) dialog.showModal();
 				// Focus the title after the dialog paints.
@@ -104,6 +108,7 @@
 			status,
 			priority,
 			dueDate,
+			assigneeId,
 			labelIds
 		});
 		saving = false;
@@ -287,6 +292,20 @@
 						</div>
 					{/if}
 				</div>
+
+				<!-- Assignee (native select behind the pill — never clips) -->
+				<span class="{pill} relative">
+					<NameTag name={store.memberName(assigneeId)} showName={!!assigneeId} />
+					{#if !assigneeId}<span class="text-muted-foreground">Assignee</span>{/if}
+					<select
+						bind:value={assigneeId}
+						aria-label="Assignee"
+						class="absolute inset-0 cursor-pointer opacity-0"
+					>
+						<option value="">Unassigned</option>
+						{#each store.members as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+					</select>
+				</span>
 			</div>
 
 			<!-- Footer -->

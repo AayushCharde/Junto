@@ -10,6 +10,7 @@
 	import { getUi } from '$lib/state/ui.svelte';
 	import StatusIcon from '$lib/components/status-icon.svelte';
 	import PriorityIcon from '$lib/components/priority-icon.svelte';
+	import NameTag from '$lib/components/name-tag.svelte';
 	import { formatDue, isOverdue } from '$lib/due';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Search from '@lucide/svelte/icons/search';
@@ -145,6 +146,9 @@
 							<span class="shrink-0 text-xs {isOverdue(task.dueDate) ? 'text-red-400' : 'text-muted-foreground'}">
 								{formatDue(task.dueDate)}
 							</span>
+						{/if}
+						{#if task.assigneeId}
+							<NameTag name={store.memberName(task.assigneeId)} showName={false} class="shrink-0" />
 						{/if}
 						<a
 							href={`/projects/${task.projectId}`}

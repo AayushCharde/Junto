@@ -15,7 +15,10 @@ import type {
 	CreateLabelInput,
 	CreateProjectInput,
 	CreateTaskInput,
-	UpdateTaskInput
+	UpdateLabelInput,
+	UpdateProjectInput,
+	UpdateTaskInput,
+	UpdateWorkspaceInput
 } from '@junto/core';
 import type { Database } from './client';
 import {
@@ -29,7 +32,7 @@ import {
 	tasks,
 	workspaces
 } from './schema';
-import type { Label, Project, Task, Workspace } from './schema';
+import type { Label, Profile, Project, Task, Workspace } from './schema';
 
 export interface TaskLabelLink {
 	taskId: string;
@@ -97,6 +100,38 @@ export async function ensureProfile(
 		.insert(profiles)
 		.values({ id: userId, displayName })
 		.onConflictDoNothing({ target: profiles.id });
+}
+
+export async function getProfile(db: Database, userId: string): Promise<Profile | null> {
+	const [row] = await db.select().from(profiles).where(eq(profiles.id, userId)).limit(1);
+	return row ?? null;
+}
+
+/** Set the user's display name (used for assignee "name tags" and the feed). */
+export async function updateProfileName(
+	db: Database,
+	userId: string,
+	displayName: string | null
+): Promise<Profile | null> {
+	const [row] = await db
+		.insert(profiles)
+		.values({ id: userId, displayName })
+		.onConflictDoUpdate({ target: profiles.id, set: { displayName } })
+		.returning();
+	return row ?? null;
+}
+
+export async function updateWorkspace(
+	db: Database,
+	id: string,
+	patch: UpdateWorkspaceInput
+): Promise<Workspace | null> {
+	const [row] = await db
+		.update(workspaces)
+		.set({ name: patch.name })
+		.where(eq(workspaces.id, id))
+		.returning();
+	return row ?? null;
 }
 
 /** Reassign every workspace owned by `fromUserId` to `toUserId`. Returns count. */
@@ -201,6 +236,28 @@ export async function createProject(db: Database, input: CreateProjectInput): Pr
 	return row!;
 }
 
+export async function updateProject(
+	db: Database,
+	id: string,
+	patch: UpdateProjectInput
+): Promise<Project | null> {
+	const [row] = await db
+		.update(projects)
+		.set({
+			...(patch.name !== undefined ? { name: patch.name } : {}),
+			...(patch.color !== undefined ? { color: patch.color } : {}),
+			...(patch.archived !== undefined ? { archived: patch.archived } : {})
+		})
+		.where(eq(projects.id, id))
+		.returning();
+	return row ?? null;
+}
+
+/** Deletes a project; its tasks/labels-links cascade via FK. */
+export async function deleteProject(db: Database, id: string): Promise<void> {
+	await db.delete(projects).where(eq(projects.id, id));
+}
+
 export async function createTask(db: Database, input: CreateTaskInput): Promise<Task> {
 	const [row] = await db
 		.insert(tasks)
@@ -212,6 +269,7 @@ export async function createTask(db: Database, input: CreateTaskInput): Promise<
 			status: input.status ?? 'backlog',
 			priority: input.priority ?? 'none',
 			dueDate: input.dueDate ?? null,
+			assigneeId: input.assigneeId ?? null,
 			parentTaskId: input.parentTaskId ?? null,
 			// Monotonic default so new tasks land at the bottom of their column.
 			sortOrder: input.sortOrder ?? Date.now()
@@ -233,6 +291,7 @@ export async function updateTask(
 			...(patch.status !== undefined ? { status: patch.status } : {}),
 			...(patch.priority !== undefined ? { priority: patch.priority } : {}),
 			...(patch.dueDate !== undefined ? { dueDate: patch.dueDate } : {}),
+			...(patch.assigneeId !== undefined ? { assigneeId: patch.assigneeId } : {}),
 			...(patch.sortOrder !== undefined ? { sortOrder: patch.sortOrder } : {}),
 			updatedAt: new Date()
 		})
@@ -279,6 +338,22 @@ export async function createLabel(db: Database, input: CreateLabelInput): Promis
 		})
 		.returning();
 	return row!;
+}
+
+export async function updateLabel(
+	db: Database,
+	id: string,
+	patch: UpdateLabelInput
+): Promise<Label | null> {
+	const [row] = await db
+		.update(labels)
+		.set({
+			...(patch.name !== undefined ? { name: patch.name } : {}),
+			...(patch.color !== undefined ? { color: patch.color } : {})
+		})
+		.where(eq(labels.id, id))
+		.returning();
+	return row ?? null;
 }
 
 export async function deleteLabel(db: Database, id: string): Promise<void> {

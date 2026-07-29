@@ -17,7 +17,7 @@
 			workspaceId: data.workspace?.id ?? null,
 			workspaceName: data.workspace?.name ?? 'Workspace',
 			currentUserId: data.user?.id ?? null,
-			currentUserName: data.user?.email ?? null,
+			currentUserName: data.user?.displayName ?? data.user?.email ?? null,
 			projects: data.projects,
 			tasks: data.tasks,
 			labels: data.labels,

@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import {
+	getProfile,
 	listActivityForWorkspace,
 	listCommentsForWorkspace,
 	listLabels,
@@ -20,17 +21,18 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	const db = getDb();
 	const workspace = await bootstrapUser(db, user);
 
-	const [projects, tasks, labels, taskLabels, comments, activity] = await Promise.all([
+	const [projects, tasks, labels, taskLabels, comments, activity, profile] = await Promise.all([
 		listProjects(db, workspace.id),
 		listTasksForWorkspace(db, workspace.id),
 		listLabels(db, workspace.id),
 		listTaskLabels(db, workspace.id),
 		listCommentsForWorkspace(db, workspace.id),
-		listActivityForWorkspace(db, workspace.id)
+		listActivityForWorkspace(db, workspace.id),
+		getProfile(db, user.id)
 	]);
 
 	return {
-		user: { id: user.id, email: user.email ?? null },
+		user: { id: user.id, email: user.email ?? null, displayName: profile?.displayName ?? null },
 		workspace,
 		projects,
 		tasks,
