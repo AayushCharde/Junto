@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import {
 		TASK_PRIORITIES,
 		TASK_PRIORITY_LABELS,
@@ -8,6 +9,7 @@
 	} from '@junto/core';
 	import { Button } from '$lib/components/ui/button';
 	import TaskCard from '$lib/components/task-card.svelte';
+	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import { getTracker, STATUS_COLUMNS, type Task } from '$lib/state/tracker.svelte';
 	import { getUi } from '$lib/state/ui.svelte';
 	import StatusIcon from '$lib/components/status-icon.svelte';
@@ -17,6 +19,10 @@
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import ListIcon from '@lucide/svelte/icons/list';
 	import Plus from '@lucide/svelte/icons/plus';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Archive from '@lucide/svelte/icons/archive';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import X from '@lucide/svelte/icons/x';
 
 	const store = getTracker();
@@ -26,6 +32,26 @@
 	const project = $derived(store.projectById(projectId));
 
 	let drafts = $state<Record<string, string>>({});
+
+	// Project management (rename / archive / delete)
+	let menuOpen = $state(false);
+	let renaming = $state(false);
+	let draftName = $state('');
+	let confirmDelete = $state(false);
+	function focusEl(node: HTMLElement) {
+		node.focus();
+	}
+	function startRename() {
+		if (!project) return;
+		draftName = project.name;
+		renaming = true;
+		menuOpen = false;
+	}
+	function commitRename() {
+		const n = draftName.trim();
+		renaming = false;
+		if (project && n && n !== project.name) store.updateProject(project.id, { name: n });
+	}
 
 	// Drag state
 	let draggedId = $state<string | null>(null);
@@ -99,11 +125,50 @@
 	</div>
 {:else}
 	<header class="border-border flex h-12 shrink-0 items-center justify-between border-b px-5">
-		<div class="flex items-center gap-2">
+		<div class="flex min-w-0 items-center gap-2">
 			<span class="size-2.5 shrink-0 rounded-full" style={`background:${project.color ?? '#71717a'}`}
 			></span>
-			<h1 class="text-sm font-semibold">{project.name}</h1>
-			<span class="text-muted-foreground text-xs">{store.tasksForProject(projectId).length}</span>
+			{#if renaming}
+				<input
+					bind:value={draftName}
+					use:focusEl
+					onblur={commitRename}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') e.currentTarget.blur();
+						if (e.key === 'Escape') (renaming = false);
+					}}
+					class="border-input bg-background min-w-0 rounded border px-1.5 py-0.5 text-sm font-semibold outline-none"
+				/>
+			{:else}
+				<h1 class="truncate text-sm font-semibold">{project.name}</h1>
+			{/if}
+			<span class="text-muted-foreground shrink-0 text-xs">{store.tasksForProject(projectId).length}</span>
+
+			<!-- Manage menu -->
+			<div class="relative">
+				<button
+					type="button"
+					aria-label="Project actions"
+					onclick={() => (menuOpen = !menuOpen)}
+					class="text-muted-foreground hover:text-foreground hover:bg-accent rounded p-1"
+				>
+					<Ellipsis class="size-4" />
+				</button>
+				{#if menuOpen}
+					<button type="button" aria-label="Close" class="fixed inset-0 z-10 cursor-default" onclick={() => (menuOpen = false)}></button>
+					<div class="border-border bg-popover absolute left-0 top-8 z-20 w-40 rounded-md border p-1 text-sm shadow-xl">
+						<button type="button" class="hover:bg-accent flex w-full items-center gap-2 rounded px-2 py-1.5" onclick={startRename}>
+							<Pencil class="size-3.5" /> Rename
+						</button>
+						<button type="button" class="hover:bg-accent flex w-full items-center gap-2 rounded px-2 py-1.5" onclick={() => (store.updateProject(project.id, { archived: true }), (menuOpen = false), goto('/projects'))}>
+							<Archive class="size-3.5" /> Archive
+						</button>
+						<button type="button" class="text-destructive hover:bg-destructive/10 flex w-full items-center gap-2 rounded px-2 py-1.5" onclick={() => ((confirmDelete = true), (menuOpen = false))}>
+							<Trash2 class="size-3.5" /> Delete
+						</button>
+					</div>
+				{/if}
+			</div>
 		</div>
 
 		<div class="flex items-center gap-2">
@@ -285,4 +350,16 @@
 			{/if}
 		</div>
 	{/if}
+
+	<ConfirmDialog
+		bind:open={confirmDelete}
+		title="Delete project?"
+		message={`"${project.name}" and all its tasks will be permanently deleted. This cannot be undone.`}
+		confirmLabel="Delete project"
+		destructive
+		onconfirm={async () => {
+			const ok = await store.deleteProject(project.id);
+			if (ok) goto('/');
+		}}
+	/>
 {/if}

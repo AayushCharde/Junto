@@ -21,6 +21,35 @@ export const createProjectSchema = z.object({
 });
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 
+export const updateProjectSchema = z
+	.object({
+		name: z.string().trim().min(1).max(120),
+		color: z.string().trim().max(32).nullable(),
+		archived: z.boolean()
+	})
+	.partial()
+	.refine((p) => Object.keys(p).length > 0, { message: 'At least one field must be provided' });
+export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+
+export const updateWorkspaceSchema = z.object({
+	name: z.string().trim().min(1).max(120)
+});
+export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>;
+
+export const updateProfileSchema = z.object({
+	displayName: z.string().trim().min(1).max(80).nullable()
+});
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+export const updateLabelSchema = z
+	.object({
+		name: z.string().trim().min(1).max(60),
+		color: z.string().trim().max(32).nullable()
+	})
+	.partial()
+	.refine((p) => Object.keys(p).length > 0, { message: 'At least one field must be provided' });
+export type UpdateLabelInput = z.infer<typeof updateLabelSchema>;
+
 export const createTaskSchema = z.object({
 	id: z.string().uuid().optional(),
 	projectId: z.string().uuid(),
@@ -29,6 +58,7 @@ export const createTaskSchema = z.object({
 	status: taskStatusSchema.optional(),
 	priority: taskPrioritySchema.optional(),
 	dueDate: dateSchema.nullable().optional(),
+	assigneeId: z.string().uuid().nullable().optional(),
 	parentTaskId: z.string().uuid().nullable().optional(),
 	sortOrder: z.number().finite().optional()
 });
@@ -41,6 +71,7 @@ export const updateTaskSchema = z
 		status: taskStatusSchema,
 		priority: taskPrioritySchema,
 		dueDate: dateSchema.nullable(),
+		assigneeId: z.string().uuid().nullable(),
 		sortOrder: z.number().finite()
 	})
 	.partial()
