@@ -10,6 +10,7 @@
 	import { formatRelative } from '$lib/activity';
 	import PriorityIcon from '$lib/components/priority-icon.svelte';
 	import NameTag from '$lib/components/name-tag.svelte';
+	import LabelChip from '$lib/components/label-chip.svelte';
 	import TaskDetail from '$lib/components/task-detail.svelte';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Search from '@lucide/svelte/icons/search';
@@ -165,6 +166,7 @@
 					{@const labels = store.labelsForTask(task.id)}
 					{@const comments = store.commentCount(task.id)}
 					{@const subs = store.subtaskProgress(task.id)}
+					{@const proj = store.projectById(task.projectId)}
 					<div
 						role="button"
 						tabindex="0"
@@ -188,17 +190,15 @@
 						{#if labels.length > 0}
 							<div class="flex flex-wrap gap-1 pl-6">
 								{#each labels.slice(0, 4) as label (label.id)}
-									<span
-										class="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-										style={`color:${label.color ?? '#a1a1aa'};background:color-mix(in srgb, ${label.color ?? '#a1a1aa'} 16%, transparent)`}
-									>
-										{label.name}
-									</span>
+									<LabelChip {label} />
 								{/each}
 							</div>
 						{/if}
-						<div class="text-muted-foreground flex items-center gap-3 pl-6 text-xs">
-							<span>{store.projectById(task.projectId)?.name ?? ''}</span>
+						<div class="text-muted-foreground flex items-center gap-2 pl-6 text-xs">
+							{#if task.number != null && proj?.key}
+								<span class="font-mono">{proj.key}#{task.number}</span>
+							{/if}
+							<span>{proj?.name ?? ''}</span>
 							<span>· created {formatRelative(task.createdAt)}</span>
 							{#if comments > 0}
 								<span class="flex items-center gap-1"><MessageSquare class="size-3" />{comments}</span>

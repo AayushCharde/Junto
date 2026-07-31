@@ -14,6 +14,7 @@ export interface Project {
 	name: string;
 	color: string | null;
 	archived: boolean;
+	key: string | null;
 }
 
 export interface Task {
@@ -27,6 +28,8 @@ export interface Task {
 	dueDate: string | null;
 	parentTaskId: string | null;
 	sortOrder: number;
+	number: number | null;
+	createdBy: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -105,6 +108,8 @@ function mapTask(raw: Record<string, unknown>): Task {
 		parentTaskId:
 			(raw.parentTaskId as string | null) ?? (raw.parent_task_id as string | null) ?? null,
 		sortOrder: Number(raw.sortOrder ?? raw.sort_order ?? 0),
+		number: raw.number != null ? Number(raw.number) : null,
+		createdBy: (raw.createdBy as string | null) ?? (raw.created_by as string | null) ?? null,
 		createdAt: ts(raw.createdAt ?? raw.created_at),
 		updatedAt: ts(raw.updatedAt ?? raw.updated_at ?? raw.createdAt ?? raw.created_at)
 	};
@@ -116,7 +121,8 @@ function mapProject(raw: Record<string, unknown>): Project {
 		workspaceId: str(raw.workspaceId ?? raw.workspace_id),
 		name: str(raw.name),
 		color: (raw.color as string | null) ?? null,
-		archived: Boolean(raw.archived)
+		archived: Boolean(raw.archived),
+		key: (raw.key as string | null) ?? null
 	};
 }
 
@@ -398,6 +404,8 @@ export class TrackerStore {
 				dueDate: null,
 				parentTaskId: null,
 				sortOrder,
+				number: null,
+				createdBy: this.currentUserId,
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString()
 			},
@@ -441,6 +449,8 @@ export class TrackerStore {
 			dueDate,
 			parentTaskId: null,
 			sortOrder,
+			number: null,
+			createdBy: this.currentUserId,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString()
 		};
@@ -481,6 +491,8 @@ export class TrackerStore {
 				dueDate: null,
 				parentTaskId,
 				sortOrder,
+				number: null,
+				createdBy: this.currentUserId,
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString()
 			},
@@ -544,7 +556,7 @@ export class TrackerStore {
 	async createProject(name: string): Promise<string | null> {
 		if (!this.workspaceId) return null;
 		const id = crypto.randomUUID();
-		this.projects.push({ id, workspaceId: this.workspaceId, name, color: null, archived: false });
+		this.projects.push({ id, workspaceId: this.workspaceId, name, color: null, archived: false, key: null });
 		try {
 			const res = await fetch('/api/projects', {
 				method: 'POST',
@@ -704,28 +716,42 @@ export class TrackerStore {
 		}
 	}
 
-	async toggleTaskLabel(taskId: string, labelId: string): Promise<void> {
-		const has = this.taskHasLabel(taskId, labelId);
+	/** Apply or remove one label link (optimistic). */
+	async #setLabel(taskId: string, labelId: string, on: boolean): Promise<void> {
+		if (on === this.taskHasLabel(taskId, labelId)) return;
 		const prev = this.taskLabels;
-		if (has) {
-			this.taskLabels = this.taskLabels.filter(
-				(l) => !(l.taskId === taskId && l.labelId === labelId)
-			);
-		} else {
-			this.taskLabels.push({ taskId, labelId });
-		}
+		if (on) this.taskLabels.push({ taskId, labelId });
+		else this.taskLabels = this.taskLabels.filter((l) => !(l.taskId === taskId && l.labelId === labelId));
 		try {
-			const res = has
-				? await fetch(`/api/tasks/${taskId}/labels/${labelId}`, { method: 'DELETE' })
-				: await fetch(`/api/tasks/${taskId}/labels`, {
+			const res = on
+				? await fetch(`/api/tasks/${taskId}/labels`, {
 						method: 'POST',
 						headers: { 'content-type': 'application/json' },
 						body: JSON.stringify({ labelId })
-					});
-			if (!res.ok && res.status !== 204) throw new Error('toggle label failed');
+					})
+				: await fetch(`/api/tasks/${taskId}/labels/${labelId}`, { method: 'DELETE' });
+			if (!res.ok && res.status !== 204) throw new Error('label failed');
 		} catch {
 			this.taskLabels = prev;
 		}
+	}
+
+	async toggleTaskLabel(taskId: string, labelId: string): Promise<void> {
+		const has = this.taskHasLabel(taskId, labelId);
+		// Scoped labels ("scope::value") are mutually exclusive within a scope:
+		// applying one first clears any other value of the same scope.
+		if (!has) {
+			const label = this.labels.find((l) => l.id === labelId);
+			const at = label ? label.name.indexOf('::') : -1;
+			if (label && at >= 0) {
+				const scope = label.name.slice(0, at + 2);
+				const conflicts = this.labels.filter(
+					(x) => x.id !== labelId && x.name.startsWith(scope) && this.taskHasLabel(taskId, x.id)
+				);
+				for (const c of conflicts) await this.#setLabel(taskId, c.id, false);
+			}
+		}
+		await this.#setLabel(taskId, labelId, !has);
 	}
 
 	// ── Comment mutations (optimistic) ───────────────────────────────────────

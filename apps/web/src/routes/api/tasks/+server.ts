@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(403, 'Forbidden');
 	}
 
-	const row = await createTask(db, parsed.data);
+	const row = await createTask(db, parsed.data, locals.user.id);
 
 	// Subtasks are noisy in the feed; only log top-level task creation.
 	if (!parsed.data.parentTaskId) {

@@ -16,6 +16,7 @@
 	import StatusIcon from '$lib/components/status-icon.svelte';
 	import PriorityIcon from '$lib/components/priority-icon.svelte';
 	import NameTag from '$lib/components/name-tag.svelte';
+	import LabelChip from '$lib/components/label-chip.svelte';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import Check from '@lucide/svelte/icons/check';
 	import Pencil from '@lucide/svelte/icons/pencil';
@@ -48,6 +49,7 @@
 	const activity = $derived(task ? store.activityForTask(task.id) : []);
 	const taskLabels = $derived(task ? store.labelsForTask(task.id) : []);
 	const assigneeName = $derived(task ? store.memberName(task.assigneeId) : null);
+	const authorName = $derived(task ? store.memberName(task.createdBy) : null);
 	const editing = $derived(mode === 'edit');
 	const isOpen = $derived(task ? task.status !== 'done' && task.status !== 'canceled' : false);
 
@@ -147,6 +149,9 @@
 			>
 				<span class="size-2 shrink-0 rounded-full" style={`background:${project?.color ?? '#71717a'}`}></span>
 				<span class="truncate">{project?.name ?? 'Project'}</span>
+				{#if task.number != null && project?.key}
+					<span class="font-mono shrink-0">{project.key}#{task.number}</span>
+				{/if}
 			</a>
 			<div class="flex shrink-0 items-center gap-1.5">
 				<button
@@ -201,7 +206,7 @@
 							{isOpen ? 'Open' : 'Closed'}
 						</span>
 						<span class="text-muted-foreground">
-							created {formatRelative(task.createdAt)} · updated {formatRelative(task.updatedAt)}
+							created {formatRelative(task.createdAt)}{#if authorName} by {authorName}{/if} · updated {formatRelative(task.updatedAt)}
 						</span>
 					</div>
 				</div>
@@ -305,12 +310,7 @@
 				{:else if taskLabels.length > 0}
 					<div class="flex flex-wrap gap-1.5">
 						{#each taskLabels as label (label.id)}
-							<span
-								class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-								style={`color:${label.color ?? '#a1a1aa'};background:color-mix(in srgb, ${label.color ?? '#a1a1aa'} 16%, transparent)`}
-							>
-								{label.name}
-							</span>
+							<LabelChip {label} />
 						{/each}
 					</div>
 				{:else}

@@ -14,6 +14,7 @@ import {
 	doublePrecision,
 	foreignKey,
 	index,
+	integer,
 	jsonb,
 	pgEnum,
 	pgTable,
@@ -72,6 +73,9 @@ export const projects = pgTable(
 		name: text('name').notNull(),
 		color: text('color'),
 		archived: boolean('archived').notNull().default(false),
+		// Short display key (e.g. "JUN") + a monotonic counter for issue numbers.
+		key: text('key'),
+		issueCounter: integer('issue_counter').notNull().default(0),
 		createdAt
 	},
 	(t) => [index('projects_workspace_id_idx').on(t.workspaceId)]
@@ -89,6 +93,9 @@ export const tasks = pgTable(
 		status: taskStatus('status').notNull().default('backlog'),
 		priority: taskPriority('priority').notNull().default('none'),
 		assigneeId: uuid('assignee_id').references(() => authUsers.id, { onDelete: 'set null' }),
+		// Human-friendly per-project issue number (rendered as KEY#number).
+		number: integer('number'),
+		createdBy: uuid('created_by').references(() => authUsers.id, { onDelete: 'set null' }),
 		dueDate: date('due_date'),
 		// Self-referential FK for subtasks (constraint defined in the table extras below).
 		parentTaskId: uuid('parent_task_id'),
