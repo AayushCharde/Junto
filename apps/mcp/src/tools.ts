@@ -92,13 +92,23 @@ export const TOOLS: ToolDef[] = [
 	{
 		name: 'create_task',
 		description:
-			'Create a task in a project. Requires projectId (from list_projects) and title; status/priority/description/dueDate are optional.',
+			'Create an issue in a project. Requires projectId (from list_projects) and a concise title. ' +
+			'IMPORTANT: write a DETAILED `description` in Markdown — treat it like a professional GitLab/Linear ' +
+			'issue, never a one-liner. Include a short summary, then sections such as "## Problem" / "## Context" / ' +
+			'"## Proposed fix" / "## Acceptance criteria" where relevant, using headings, bullet lists, `inline code`, ' +
+			'code blocks and links. status/priority/dueDate are optional.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				projectId: { type: 'string' },
-				title: { type: 'string' },
-				description: { type: 'string' },
+				title: { type: 'string', description: 'Short, specific issue title (the summary line).' },
+				description: {
+					type: 'string',
+					description:
+						'Detailed Markdown body — the issue writeup, not a sentence. Prefer structured sections ' +
+						'(e.g. ## Problem, ## Context, ## Proposed fix, ## Acceptance criteria) as appropriate. ' +
+						'Renders as Markdown: headings, lists, `inline code`, ```code blocks```, links, **bold**.'
+				},
 				status: statusEnum,
 				priority: priorityEnum,
 				dueDate: dateField
@@ -120,13 +130,17 @@ export const TOOLS: ToolDef[] = [
 	{
 		name: 'update_task',
 		description:
-			'Update a task by id. Provide taskId plus any of title, description, status, priority, dueDate.',
+			'Update an issue by id. Provide taskId plus any of title, description, status, priority, dueDate. ' +
+			'When setting or expanding the description, use detailed Markdown (see create_task guidance).',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				taskId: { type: 'string' },
 				title: { type: 'string' },
-				description: { type: ['string', 'null'] },
+				description: {
+					type: ['string', 'null'],
+					description: 'Detailed Markdown body (structured sections, lists, code, links) — not a one-liner.'
+				},
 				status: statusEnum,
 				priority: priorityEnum,
 				dueDate: { ...dateField, type: ['string', 'null'] }

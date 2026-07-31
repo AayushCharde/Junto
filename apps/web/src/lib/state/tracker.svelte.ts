@@ -27,6 +27,8 @@ export interface Task {
 	dueDate: string | null;
 	parentTaskId: string | null;
 	sortOrder: number;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface Label {
@@ -66,6 +68,10 @@ export interface ActivityItem {
  * in wire representation: timestamps arrive as `Date` (or string), `meta` as
  * `unknown`. The constructor normalizes them via `mapComment`/`mapActivity`.
  */
+type TaskInput = Omit<Task, 'createdAt' | 'updatedAt'> & {
+	createdAt: string | Date;
+	updatedAt: string | Date;
+};
 type CommentInput = Omit<Comment, 'createdAt'> & { createdAt: string | Date };
 type ActivityInput = Omit<ActivityItem, 'meta' | 'createdAt'> & {
 	meta: unknown;
@@ -98,7 +104,9 @@ function mapTask(raw: Record<string, unknown>): Task {
 		dueDate: (raw.dueDate as string | null) ?? (raw.due_date as string | null) ?? null,
 		parentTaskId:
 			(raw.parentTaskId as string | null) ?? (raw.parent_task_id as string | null) ?? null,
-		sortOrder: Number(raw.sortOrder ?? raw.sort_order ?? 0)
+		sortOrder: Number(raw.sortOrder ?? raw.sort_order ?? 0),
+		createdAt: ts(raw.createdAt ?? raw.created_at),
+		updatedAt: ts(raw.updatedAt ?? raw.updated_at ?? raw.createdAt ?? raw.created_at)
 	};
 }
 
@@ -185,7 +193,7 @@ export class TrackerStore {
 		currentUserId?: string | null;
 		currentUserName?: string | null;
 		projects: Project[];
-		tasks: Task[];
+		tasks: TaskInput[];
 		labels?: Label[];
 		taskLabels?: TaskLabelLink[];
 		comments?: CommentInput[];
@@ -389,7 +397,9 @@ export class TrackerStore {
 				assigneeId: null,
 				dueDate: null,
 				parentTaskId: null,
-				sortOrder
+				sortOrder,
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
 			},
 			{ id, projectId, title: trimmed, status, sortOrder }
 		);
@@ -430,7 +440,9 @@ export class TrackerStore {
 			assigneeId,
 			dueDate,
 			parentTaskId: null,
-			sortOrder
+			sortOrder,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString()
 		};
 		this.tasks.push(optimistic);
 		try {
@@ -468,7 +480,9 @@ export class TrackerStore {
 				assigneeId: null,
 				dueDate: null,
 				parentTaskId,
-				sortOrder
+				sortOrder,
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
 			},
 			{ id, projectId, title: trimmed, parentTaskId, sortOrder }
 		);
