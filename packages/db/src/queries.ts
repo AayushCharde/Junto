@@ -223,6 +223,11 @@ export async function listTasksForWorkspace(
 	return rows.map((r) => r.tasks);
 }
 
+/** Short display key from a project name: first 3 alphanumerics, uppercased. */
+export function deriveProjectKey(name: string): string {
+	return name.replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase() || 'PRJ';
+}
+
 export async function createProject(db: Database, input: CreateProjectInput): Promise<Project> {
 	const [row] = await db
 		.insert(projects)
@@ -230,7 +235,9 @@ export async function createProject(db: Database, input: CreateProjectInput): Pr
 			id: input.id,
 			workspaceId: input.workspaceId,
 			name: input.name,
-			color: input.color
+			color: input.color,
+			key: deriveProjectKey(input.name),
+			issueCounter: 0
 		})
 		.returning();
 	return row!;
@@ -258,7 +265,18 @@ export async function deleteProject(db: Database, id: string): Promise<void> {
 	await db.delete(projects).where(eq(projects.id, id));
 }
 
-export async function createTask(db: Database, input: CreateTaskInput): Promise<Task> {
+export async function createTask(
+	db: Database,
+	input: CreateTaskInput,
+	createdBy: string | null = null
+): Promise<Task> {
+	// Atomically claim the next per-project issue number.
+	const [proj] = await db
+		.update(projects)
+		.set({ issueCounter: sql`${projects.issueCounter} + 1` })
+		.where(eq(projects.id, input.projectId))
+		.returning({ n: projects.issueCounter });
+
 	const [row] = await db
 		.insert(tasks)
 		.values({
@@ -271,6 +289,8 @@ export async function createTask(db: Database, input: CreateTaskInput): Promise<
 			dueDate: input.dueDate ?? null,
 			assigneeId: input.assigneeId ?? null,
 			parentTaskId: input.parentTaskId ?? null,
+			number: proj?.n ?? null,
+			createdBy,
 			// Monotonic default so new tasks land at the bottom of their column.
 			sortOrder: input.sortOrder ?? Date.now()
 		})

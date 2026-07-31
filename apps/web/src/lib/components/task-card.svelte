@@ -2,6 +2,7 @@
 	import { getTracker, type Task } from '$lib/state/tracker.svelte';
 	import PriorityIcon from '$lib/components/priority-icon.svelte';
 	import NameTag from '$lib/components/name-tag.svelte';
+	import LabelChip from '$lib/components/label-chip.svelte';
 	import { formatDue, isOverdue } from '$lib/due';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ListChecks from '@lucide/svelte/icons/list-checks';
@@ -25,6 +26,7 @@
 
 	const store = getTracker();
 	const labels = $derived(store.labelsForTask(task.id));
+	const projectKey = $derived(store.projectById(task.projectId)?.key ?? null);
 	const sub = $derived(store.subtaskProgress(task.id));
 	const commentCount = $derived(store.commentCount(task.id));
 	const overdue = $derived(isOverdue(task.dueDate));
@@ -50,17 +52,15 @@
 	{#if labels.length > 0}
 		<div class="mb-1.5 flex flex-wrap gap-1">
 			{#each labels as label (label.id)}
-				<span
-					class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none font-medium"
-					style={`color:${label.color ?? '#a1a1aa'};background:color-mix(in srgb, ${label.color ?? '#a1a1aa'} 16%, transparent)`}
-				>
-					{label.name}
-				</span>
+				<LabelChip {label} />
 			{/each}
 		</div>
 	{/if}
 
 	<p class="text-foreground text-sm leading-snug">{task.title}</p>
+	{#if task.number != null && projectKey}
+		<span class="text-muted-foreground mt-0.5 block font-mono text-[10px]">{projectKey}#{task.number}</span>
+	{/if}
 
 	<div class="text-muted-foreground mt-2 flex items-center gap-3 text-xs">
 		<PriorityIcon priority={task.priority} class="size-3.5" />
