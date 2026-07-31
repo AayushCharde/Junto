@@ -93,7 +93,13 @@ async function handleMessage(
 			return ok(msg.id, {
 				protocolVersion: PROTOCOL_VERSION,
 				capabilities: { tools: {} },
-				serverInfo: SERVER_INFO
+				serverInfo: SERVER_INFO,
+				instructions:
+					'Junto is an issue tracker. Whenever you create or update an issue (create_task / ' +
+					'update_task), write a DETAILED, well-structured Markdown description — like a professional ' +
+					'GitLab/Linear issue, not just a title. Include a short summary and, where relevant, sections ' +
+					'such as "## Problem", "## Context", "## Proposed fix", and "## Acceptance criteria", using ' +
+					'headings, bullet lists, `inline code`, code blocks and links. Descriptions render as Markdown.'
 			});
 
 		case 'notifications/initialized':
