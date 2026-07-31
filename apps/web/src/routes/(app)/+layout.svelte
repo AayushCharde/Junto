@@ -20,6 +20,8 @@
 			workspaceName: data.workspace?.name ?? 'Workspace',
 			currentUserId: data.user?.id ?? null,
 			currentUserName: data.user?.displayName ?? data.user?.email ?? null,
+			members: data.members,
+			isOwner: data.isOwner,
 			projects: data.projects,
 			tasks: data.tasks,
 			labels: data.labels,

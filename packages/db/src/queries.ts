@@ -7,7 +7,7 @@
  * default workspace.
  */
 
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { toVectorLiteral } from '@junto/core';
 import type {
 	ActivityAction,
@@ -30,9 +30,11 @@ import {
 	projects,
 	taskLabels,
 	tasks,
+	workspaceInvites,
+	workspaceMembers,
 	workspaces
 } from './schema';
-import type { Label, Profile, Project, Task, Workspace } from './schema';
+import type { Label, Profile, Project, Task, Workspace, WorkspaceInvite } from './schema';
 
 export interface TaskLabelLink {
 	taskId: string;
@@ -76,15 +78,21 @@ export async function getDefaultWorkspace(db: Database): Promise<Workspace | nul
 	return ws ?? null;
 }
 
-/** The (oldest) workspace owned by a specific user. */
+/** The (oldest) workspace the user is a member of. */
 export async function getWorkspaceForUser(
 	db: Database,
 	userId: string
 ): Promise<Workspace | null> {
 	const [ws] = await db
-		.select()
+		.select({
+			id: workspaces.id,
+			ownerId: workspaces.ownerId,
+			name: workspaces.name,
+			createdAt: workspaces.createdAt
+		})
 		.from(workspaces)
-		.where(eq(workspaces.ownerId, userId))
+		.innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, workspaces.id))
+		.where(eq(workspaceMembers.userId, userId))
 		.orderBy(asc(workspaces.createdAt))
 		.limit(1);
 	return ws ?? null;
@@ -148,7 +156,7 @@ export async function reassignWorkspaces(
 	return rows.length;
 }
 
-/** Fresh workspace + default Inbox project for a brand-new user. */
+/** Fresh workspace + default Inbox project + owner membership for a new user. */
 export async function createWorkspaceWithInbox(
 	db: Database,
 	userId: string,
@@ -156,11 +164,52 @@ export async function createWorkspaceWithInbox(
 ): Promise<Workspace> {
 	const [ws] = await db.insert(workspaces).values({ ownerId: userId, name }).returning();
 	await db.insert(projects).values({ workspaceId: ws!.id, name: 'Inbox', color: '#6366f1' });
+	await db
+		.insert(workspaceMembers)
+		.values({ workspaceId: ws!.id, userId, role: 'owner' })
+		.onConflictDoNothing();
 	return ws!;
 }
 
-/** Manual ownership scoping (Drizzle bypasses RLS). */
-export async function userOwnsWorkspace(
+/**
+ * Ensure the owner of a workspace has an owner-membership row. Idempotent;
+ * used by `bootstrapUser` so pre-membership owners (or newly reassigned seed
+ * workspaces) get a membership without a data migration.
+ */
+export async function ensureOwnerMembership(db: Database, userId: string): Promise<void> {
+	const owned = await db
+		.select({ id: workspaces.id })
+		.from(workspaces)
+		.where(eq(workspaces.ownerId, userId));
+	if (owned.length === 0) return;
+	await db
+		.insert(workspaceMembers)
+		.values(owned.map((w) => ({ workspaceId: w.id, userId, role: 'owner' })))
+		.onConflictDoNothing();
+}
+
+/**
+ * Manual access scoping (Drizzle bypasses RLS). As of Phase 2 these check
+ * *membership* — a user may touch a workspace's data if they belong to it.
+ * The `userOwns*` names are kept for continuity; semantics = "is a member".
+ */
+export async function isWorkspaceMember(
+	db: Database,
+	userId: string,
+	workspaceId: string
+): Promise<boolean> {
+	const [row] = await db
+		.select({ userId: workspaceMembers.userId })
+		.from(workspaceMembers)
+		.where(
+			and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId))
+		)
+		.limit(1);
+	return Boolean(row);
+}
+
+/** Workspace-management gate (invites, members, rename): owner only. */
+export async function isWorkspaceOwner(
 	db: Database,
 	userId: string,
 	workspaceId: string
@@ -173,6 +222,14 @@ export async function userOwnsWorkspace(
 	return Boolean(row);
 }
 
+export async function userOwnsWorkspace(
+	db: Database,
+	userId: string,
+	workspaceId: string
+): Promise<boolean> {
+	return isWorkspaceMember(db, userId, workspaceId);
+}
+
 export async function userOwnsProject(
 	db: Database,
 	userId: string,
@@ -181,8 +238,8 @@ export async function userOwnsProject(
 	const [row] = await db
 		.select({ id: projects.id })
 		.from(projects)
-		.innerJoin(workspaces, eq(projects.workspaceId, workspaces.id))
-		.where(and(eq(projects.id, projectId), eq(workspaces.ownerId, userId)))
+		.innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, projects.workspaceId))
+		.where(and(eq(projects.id, projectId), eq(workspaceMembers.userId, userId)))
 		.limit(1);
 	return Boolean(row);
 }
@@ -196,8 +253,8 @@ export async function userOwnsTask(
 		.select({ id: tasks.id })
 		.from(tasks)
 		.innerJoin(projects, eq(tasks.projectId, projects.id))
-		.innerJoin(workspaces, eq(projects.workspaceId, workspaces.id))
-		.where(and(eq(tasks.id, taskId), eq(workspaces.ownerId, userId)))
+		.innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, projects.workspaceId))
+		.where(and(eq(tasks.id, taskId), eq(workspaceMembers.userId, userId)))
 		.limit(1);
 	return Boolean(row);
 }
@@ -402,8 +459,8 @@ export async function userOwnsLabel(
 	const [row] = await db
 		.select({ id: labels.id })
 		.from(labels)
-		.innerJoin(workspaces, eq(labels.workspaceId, workspaces.id))
-		.where(and(eq(labels.id, labelId), eq(workspaces.ownerId, userId)))
+		.innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, labels.workspaceId))
+		.where(and(eq(labels.id, labelId), eq(workspaceMembers.userId, userId)))
 		.limit(1);
 	return Boolean(row);
 }
@@ -490,7 +547,7 @@ export async function deleteComment(db: Database, id: string): Promise<void> {
 	await db.delete(comments).where(eq(comments.id, id));
 }
 
-/** A user may delete a comment if it lives in a workspace they own. */
+/** A user may delete a comment if it lives in a workspace they belong to. */
 export async function userOwnsComment(
 	db: Database,
 	userId: string,
@@ -501,8 +558,8 @@ export async function userOwnsComment(
 		.from(comments)
 		.innerJoin(tasks, eq(comments.taskId, tasks.id))
 		.innerJoin(projects, eq(tasks.projectId, projects.id))
-		.innerJoin(workspaces, eq(projects.workspaceId, workspaces.id))
-		.where(and(eq(comments.id, commentId), eq(workspaces.ownerId, userId)))
+		.innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, projects.workspaceId))
+		.where(and(eq(comments.id, commentId), eq(workspaceMembers.userId, userId)))
 		.limit(1);
 	return Boolean(row);
 }
@@ -556,6 +613,147 @@ export async function listActivityForWorkspace(
 		.where(eq(activity.workspaceId, workspaceId))
 		.orderBy(desc(activity.createdAt))
 		.limit(limit);
+}
+
+// ── Members & invites (Phase 2) ─────────────────────────────────────────────
+
+/** A workspace member hydrated with their display name for the UI. */
+export interface MemberWithProfile {
+	userId: string;
+	role: string;
+	name: string | null;
+	isOwner: boolean;
+	createdAt: Date;
+}
+
+/** All members of a workspace, owner first then by join time. */
+export async function listMembers(
+	db: Database,
+	workspaceId: string
+): Promise<MemberWithProfile[]> {
+	const rows = await db
+		.select({
+			userId: workspaceMembers.userId,
+			role: workspaceMembers.role,
+			name: profiles.displayName,
+			ownerId: workspaces.ownerId,
+			createdAt: workspaceMembers.createdAt
+		})
+		.from(workspaceMembers)
+		.innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
+		.leftJoin(profiles, eq(workspaceMembers.userId, profiles.id))
+		.where(eq(workspaceMembers.workspaceId, workspaceId))
+		.orderBy(asc(workspaceMembers.createdAt));
+	return rows.map((r) => ({
+		userId: r.userId,
+		role: r.role,
+		name: r.name,
+		isOwner: r.userId === r.ownerId,
+		createdAt: r.createdAt
+	}));
+}
+
+/** Remove a member. The workspace owner can never be removed. */
+export async function removeMember(
+	db: Database,
+	workspaceId: string,
+	userId: string
+): Promise<void> {
+	const [ws] = await db
+		.select({ ownerId: workspaces.ownerId })
+		.from(workspaces)
+		.where(eq(workspaces.id, workspaceId))
+		.limit(1);
+	if (ws && ws.ownerId === userId) return; // never orphan the workspace
+	await db
+		.delete(workspaceMembers)
+		.where(
+			and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId))
+		);
+}
+
+/** Create a shareable invite. Returns the row (its `token` builds the URL). */
+export async function createInvite(
+	db: Database,
+	workspaceId: string,
+	role: string,
+	createdBy: string,
+	expiresAt: Date | null = null
+): Promise<WorkspaceInvite> {
+	const token = `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, '');
+	const [row] = await db
+		.insert(workspaceInvites)
+		.values({ workspaceId, role, token, createdBy, expiresAt })
+		.returning();
+	return row!;
+}
+
+/** Pending (unexpired, unrevoked) invites for a workspace, newest first. */
+export async function listInvites(
+	db: Database,
+	workspaceId: string
+): Promise<WorkspaceInvite[]> {
+	return db
+		.select()
+		.from(workspaceInvites)
+		.where(eq(workspaceInvites.workspaceId, workspaceId))
+		.orderBy(desc(workspaceInvites.createdAt));
+}
+
+/** Delete (revoke) an invite. Returns the workspace it belonged to, for auth. */
+export async function getInviteById(
+	db: Database,
+	id: string
+): Promise<WorkspaceInvite | null> {
+	const [row] = await db
+		.select()
+		.from(workspaceInvites)
+		.where(eq(workspaceInvites.id, id))
+		.limit(1);
+	return row ?? null;
+}
+
+export async function revokeInvite(db: Database, id: string): Promise<void> {
+	await db.delete(workspaceInvites).where(eq(workspaceInvites.id, id));
+}
+
+export type AcceptInviteResult =
+	| { ok: true; workspaceId: string; alreadyMember: boolean }
+	| { ok: false; reason: 'not_found' | 'expired' };
+
+/**
+ * Accept a shareable invite by token: adds the user as a member of the invite's
+ * workspace. Shareable links are reusable until expired or revoked (deleted).
+ * Idempotent — re-accepting is a no-op success.
+ */
+export async function acceptInvite(
+	db: Database,
+	token: string,
+	userId: string
+): Promise<AcceptInviteResult> {
+	const [invite] = await db
+		.select()
+		.from(workspaceInvites)
+		.where(eq(workspaceInvites.token, token))
+		.limit(1);
+	if (!invite) return { ok: false, reason: 'not_found' };
+	if (invite.expiresAt && invite.expiresAt.getTime() < Date.now()) {
+		return { ok: false, reason: 'expired' };
+	}
+
+	const already = await isWorkspaceMember(db, userId, invite.workspaceId);
+	if (!already) {
+		await db
+			.insert(workspaceMembers)
+			.values({ workspaceId: invite.workspaceId, userId, role: invite.role })
+			.onConflictDoNothing();
+		// Record first use for the owner's reference (informational only).
+		await db
+			.update(workspaceInvites)
+			.set({ acceptedAt: new Date() })
+			.where(and(eq(workspaceInvites.id, invite.id), isNull(workspaceInvites.acceptedAt)));
+	}
+	return { ok: true, workspaceId: invite.workspaceId, alreadyMember: already };
 }
 
 // ── Search (Phase 7) ──────────────────────────────────────────────────────────

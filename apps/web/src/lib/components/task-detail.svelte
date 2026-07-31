@@ -239,7 +239,7 @@
 						{#if !assigneeId}<span class="text-muted-foreground">Assignee</span>{/if}
 						<select bind:value={assigneeId} onchange={commitAssignee} aria-label="Assignee" class="absolute inset-0 cursor-pointer opacity-0">
 							<option value="">Unassigned</option>
-							{#each store.members as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+							{#each store.assignableMembers as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
 						</select>
 					</span>
 				{:else}

@@ -33,7 +33,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Route protection. Auth pages (login + the /auth/* handlers) stay public.
 	const path = event.url.pathname;
-	const isAuthRoute = path === '/login' || path.startsWith('/auth');
+	const isAuthRoute =
+		path === '/login' || path.startsWith('/auth') || path.startsWith('/invite');
 
 	if (!user && !isAuthRoute) {
 		if (path.startsWith('/api')) {

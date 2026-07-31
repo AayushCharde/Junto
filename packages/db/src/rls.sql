@@ -1,19 +1,19 @@
 -- ===========================================================================
 -- Junto Row-Level Security policies
 -- ===========================================================================
--- These policies are written NOW (Phase 0) alongside the schema but are only
--- ENFORCED starting in Phase 2 (auth). This file is the source of truth; in
--- Phase 2 it becomes a Drizzle migration.
+-- Source of truth for the RLS model. As of Phase 2 (MR1) access control is
+-- MEMBERSHIP-based: every data row belongs to a workspace, and a workspace is
+-- reachable by every row in `workspace_members`. The live policies are applied
+-- by migrations `0002` (initial, ownership) and `0007` (rewrite to membership);
+-- this file mirrors the current (post-0007) state.
 --
--- Model: ownership-based multi-tenancy. Every row ultimately belongs to a
--- workspace, and a workspace is owned by exactly one auth.users row. The
--- `authenticated` role may only touch rows in workspaces it owns; `auth.uid()`
--- resolves to the current user. The `service_role` bypasses RLS entirely.
+-- RLS is defense-in-depth only: the app (and MCP Worker) talk to Postgres over a
+-- direct Drizzle connection that BYPASSES RLS, so real enforcement is the
+-- `userOwns*` (now membership) checks in queries.ts. `auth.uid()` resolves to
+-- the current user; `service_role` bypasses RLS entirely.
 --
--- Do NOT run this during Phase 0/1: the pre-auth app talks to Postgres over a
--- direct Drizzle connection (which bypasses RLS), and the browser Realtime
--- subscription uses the anon key — enabling these policies before auth exists
--- would hide the seeded default data.
+-- The membership/invite tables are gated on workspace OWNERSHIP (not membership)
+-- to avoid self-referential RLS recursion.
 -- ===========================================================================
 
 -- profiles: a user sees and edits only their own profile row.
@@ -23,100 +23,96 @@ create policy "profiles_self" on "profiles"
   using ("id" = auth.uid())
   with check ("id" = auth.uid());
 
--- workspaces: owner-only.
-alter table "workspaces" enable row level security;
-create policy "workspaces_owner" on "workspaces"
+-- workspace_members: managed by the workspace owner.
+alter table "workspace_members" enable row level security;
+create policy "workspace_members_owner" on "workspace_members"
   for all to authenticated
-  using ("owner_id" = auth.uid())
-  with check ("owner_id" = auth.uid());
+  using (exists (select 1 from "workspaces" w where w."id" = "workspace_members"."workspace_id" and w."owner_id" = auth.uid()))
+  with check (exists (select 1 from "workspaces" w where w."id" = "workspace_members"."workspace_id" and w."owner_id" = auth.uid()));
 
--- projects: reachable only through an owned workspace.
+-- workspace_invites: managed by the workspace owner.
+alter table "workspace_invites" enable row level security;
+create policy "workspace_invites_owner" on "workspace_invites"
+  for all to authenticated
+  using (exists (select 1 from "workspaces" w where w."id" = "workspace_invites"."workspace_id" and w."owner_id" = auth.uid()))
+  with check (exists (select 1 from "workspaces" w where w."id" = "workspace_invites"."workspace_id" and w."owner_id" = auth.uid()));
+
+-- workspaces: any member may access.
+alter table "workspaces" enable row level security;
+create policy "workspaces_member" on "workspaces"
+  for all to authenticated
+  using (exists (select 1 from "workspace_members" m where m."workspace_id" = "workspaces"."id" and m."user_id" = auth.uid()))
+  with check (exists (select 1 from "workspace_members" m where m."workspace_id" = "workspaces"."id" and m."user_id" = auth.uid()));
+
+-- projects: reachable through a workspace the user is a member of.
 alter table "projects" enable row level security;
 create policy "projects_via_workspace" on "projects"
   for all to authenticated
-  using (exists (
-    select 1 from "workspaces" w
-    where w."id" = "projects"."workspace_id" and w."owner_id" = auth.uid()
-  ))
-  with check (exists (
-    select 1 from "workspaces" w
-    where w."id" = "projects"."workspace_id" and w."owner_id" = auth.uid()
-  ));
+  using (exists (select 1 from "workspace_members" m where m."workspace_id" = "projects"."workspace_id" and m."user_id" = auth.uid()))
+  with check (exists (select 1 from "workspace_members" m where m."workspace_id" = "projects"."workspace_id" and m."user_id" = auth.uid()));
 
--- tasks: reachable through project -> workspace.
+-- tasks: reachable through project -> workspace membership.
 alter table "tasks" enable row level security;
 create policy "tasks_via_workspace" on "tasks"
   for all to authenticated
   using (exists (
     select 1 from "projects" p
-    join "workspaces" w on w."id" = p."workspace_id"
-    where p."id" = "tasks"."project_id" and w."owner_id" = auth.uid()
+    join "workspace_members" m on m."workspace_id" = p."workspace_id"
+    where p."id" = "tasks"."project_id" and m."user_id" = auth.uid()
   ))
   with check (exists (
     select 1 from "projects" p
-    join "workspaces" w on w."id" = p."workspace_id"
-    where p."id" = "tasks"."project_id" and w."owner_id" = auth.uid()
+    join "workspace_members" m on m."workspace_id" = p."workspace_id"
+    where p."id" = "tasks"."project_id" and m."user_id" = auth.uid()
   ));
 
--- labels: reachable through workspace.
+-- labels: reachable through workspace membership.
 alter table "labels" enable row level security;
 create policy "labels_via_workspace" on "labels"
   for all to authenticated
-  using (exists (
-    select 1 from "workspaces" w
-    where w."id" = "labels"."workspace_id" and w."owner_id" = auth.uid()
-  ))
-  with check (exists (
-    select 1 from "workspaces" w
-    where w."id" = "labels"."workspace_id" and w."owner_id" = auth.uid()
-  ));
+  using (exists (select 1 from "workspace_members" m where m."workspace_id" = "labels"."workspace_id" and m."user_id" = auth.uid()))
+  with check (exists (select 1 from "workspace_members" m where m."workspace_id" = "labels"."workspace_id" and m."user_id" = auth.uid()));
 
--- task_labels: reachable through task -> project -> workspace.
+-- task_labels: reachable through task -> project -> workspace membership.
 alter table "task_labels" enable row level security;
 create policy "task_labels_via_workspace" on "task_labels"
   for all to authenticated
   using (exists (
     select 1 from "tasks" t
     join "projects" p on p."id" = t."project_id"
-    join "workspaces" w on w."id" = p."workspace_id"
-    where t."id" = "task_labels"."task_id" and w."owner_id" = auth.uid()
+    join "workspace_members" m on m."workspace_id" = p."workspace_id"
+    where t."id" = "task_labels"."task_id" and m."user_id" = auth.uid()
   ))
   with check (exists (
     select 1 from "tasks" t
     join "projects" p on p."id" = t."project_id"
-    join "workspaces" w on w."id" = p."workspace_id"
-    where t."id" = "task_labels"."task_id" and w."owner_id" = auth.uid()
+    join "workspace_members" m on m."workspace_id" = p."workspace_id"
+    where t."id" = "task_labels"."task_id" and m."user_id" = auth.uid()
   ));
 
--- comments: reachable through task -> project -> workspace.
+-- comments: reachable through task -> project -> workspace membership.
 alter table "comments" enable row level security;
 create policy "comments_via_workspace" on "comments"
   for all to authenticated
   using (exists (
     select 1 from "tasks" t
     join "projects" p on p."id" = t."project_id"
-    join "workspaces" w on w."id" = p."workspace_id"
-    where t."id" = "comments"."task_id" and w."owner_id" = auth.uid()
+    join "workspace_members" m on m."workspace_id" = p."workspace_id"
+    where t."id" = "comments"."task_id" and m."user_id" = auth.uid()
   ))
   with check (exists (
     select 1 from "tasks" t
     join "projects" p on p."id" = t."project_id"
-    join "workspaces" w on w."id" = p."workspace_id"
-    where t."id" = "comments"."task_id" and w."owner_id" = auth.uid()
+    join "workspace_members" m on m."workspace_id" = p."workspace_id"
+    where t."id" = "comments"."task_id" and m."user_id" = auth.uid()
   ));
 
--- activity: append-only feed, reachable through workspace.
+-- activity: append-only feed, reachable through workspace membership.
 alter table "activity" enable row level security;
 create policy "activity_via_workspace" on "activity"
   for all to authenticated
-  using (exists (
-    select 1 from "workspaces" w
-    where w."id" = "activity"."workspace_id" and w."owner_id" = auth.uid()
-  ))
-  with check (exists (
-    select 1 from "workspaces" w
-    where w."id" = "activity"."workspace_id" and w."owner_id" = auth.uid()
-  ));
+  using (exists (select 1 from "workspace_members" m where m."workspace_id" = "activity"."workspace_id" and m."user_id" = auth.uid()))
+  with check (exists (select 1 from "workspace_members" m where m."workspace_id" = "activity"."workspace_id" and m."user_id" = auth.uid()));
 
 -- embeddings: no direct owner column and dormant until Phase 7. Enable RLS with
 -- no authenticated policy => deny-all to non-privileged roles; only the
