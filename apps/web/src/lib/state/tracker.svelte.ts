@@ -81,6 +81,16 @@ type ActivityInput = Omit<ActivityItem, 'meta' | 'createdAt'> & {
 	createdAt: string | Date;
 };
 
+/** A workspace member as held in the client store. */
+export interface Member {
+	id: string;
+	name: string | null;
+	role: string;
+	isOwner: boolean;
+}
+/** Shape hydrated from the server (`listMembers` → MemberWithProfile). */
+type MemberInput = { userId: string; name: string | null; role: string; isOwner: boolean };
+
 export type View = 'board' | 'list';
 
 export interface ProjectStats {
@@ -190,6 +200,10 @@ export class TrackerStore {
 	readonly currentUserId: string | null;
 	/** Display name for the current user (falls back to email). Used for name tags. */
 	currentUserName = $state<string | null>(null);
+	/** Whether the current user owns this workspace (gates member management UI). */
+	readonly isOwner: boolean;
+	/** Everyone in the workspace — the assignable people (Phase 2). */
+	members = $state<Member[]>([]);
 	#supabase: SupabaseClient | null = null;
 	#channel: RealtimeChannel | null = null;
 
@@ -198,6 +212,8 @@ export class TrackerStore {
 		workspaceName?: string;
 		currentUserId?: string | null;
 		currentUserName?: string | null;
+		isOwner?: boolean;
+		members?: MemberInput[];
 		projects: Project[];
 		tasks: TaskInput[];
 		labels?: Label[];
@@ -209,6 +225,13 @@ export class TrackerStore {
 		this.workspaceName = init.workspaceName ?? 'Workspace';
 		this.currentUserId = init.currentUserId ?? null;
 		this.currentUserName = init.currentUserName ?? null;
+		this.isOwner = init.isOwner ?? false;
+		this.members = (init.members ?? []).map((m) => ({
+			id: m.userId,
+			name: m.name ?? (m.userId === init.currentUserId ? (init.currentUserName ?? null) : null),
+			role: m.role,
+			isOwner: m.isOwner
+		}));
 		this.projects = init.projects.map((p) => mapProject(p as unknown as Record<string, unknown>));
 		this.tasks = init.tasks.map((t) => mapTask(t as unknown as Record<string, unknown>));
 		this.labels = (init.labels ?? []).map((l) => mapLabel(l as unknown as Record<string, unknown>));
@@ -237,14 +260,23 @@ export class TrackerStore {
 		return this.projects.filter((p) => p.archived);
 	}
 
-	/** Assignable people. Single-user for now: just the current user. */
-	get members(): { id: string; name: string }[] {
-		if (!this.currentUserId) return [];
-		return [{ id: this.currentUserId, name: this.currentUserName ?? 'You' }];
+	/** Assignable people, with a friendly display name resolved for each. */
+	get assignableMembers(): { id: string; name: string }[] {
+		const list = this.members.map((m) => ({
+			id: m.id,
+			name: m.name ?? (m.id === this.currentUserId ? (this.currentUserName ?? 'You') : 'Member')
+		}));
+		// Fallback for a not-yet-hydrated single-user workspace.
+		if (list.length === 0 && this.currentUserId) {
+			return [{ id: this.currentUserId, name: this.currentUserName ?? 'You' }];
+		}
+		return list;
 	}
 
 	memberName(id: string | null): string | null {
 		if (!id) return null;
+		const m = this.members.find((x) => x.id === id);
+		if (m) return m.name ?? (id === this.currentUserId ? (this.currentUserName ?? 'You') : 'Member');
 		if (id === this.currentUserId) return this.currentUserName ?? 'You';
 		return null;
 	}
@@ -633,6 +665,21 @@ export class TrackerStore {
 			if (!res.ok) throw new Error('rename workspace failed');
 		} catch {
 			this.workspaceName = prev;
+		}
+	}
+
+	/** Remove a member from the workspace (owner-only; optimistic). */
+	async removeMember(userId: string): Promise<void> {
+		if (!this.workspaceId) return;
+		const prev = this.members;
+		this.members = this.members.filter((m) => m.id !== userId);
+		try {
+			const res = await fetch(`/api/workspace/${this.workspaceId}/members/${userId}`, {
+				method: 'DELETE'
+			});
+			if (!res.ok) throw new Error('remove member failed');
+		} catch {
+			this.members = prev;
 		}
 	}
 

@@ -63,6 +63,52 @@ export const workspaces = pgTable(
 	(t) => [index('workspaces_owner_id_idx').on(t.ownerId)]
 );
 
+/**
+ * Workspace membership (Phase 2). A workspace is *owned* by one user
+ * (`workspaces.owner_id`) but *accessible* by every member. Access control moved
+ * from ownership to membership here — `userOwns*` helpers now check this table.
+ * Role is `owner` (manages members/invites) or `member` (full data access).
+ */
+export const workspaceMembers = pgTable(
+	'workspace_members',
+	{
+		workspaceId: uuid('workspace_id')
+			.notNull()
+			.references(() => workspaces.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		role: text('role').notNull().default('member'),
+		createdAt
+	},
+	(t) => [
+		primaryKey({ columns: [t.workspaceId, t.userId] }),
+		index('workspace_members_user_id_idx').on(t.userId)
+	]
+);
+
+/**
+ * Shareable invite links (Phase 2). Anyone with the `token` URL can join the
+ * workspace as `role`. Tokens are single-use once accepted (`accepted_at`) and
+ * optionally expire (`expires_at`).
+ */
+export const workspaceInvites = pgTable(
+	'workspace_invites',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		workspaceId: uuid('workspace_id')
+			.notNull()
+			.references(() => workspaces.id, { onDelete: 'cascade' }),
+		role: text('role').notNull().default('member'),
+		token: text('token').notNull().unique(),
+		createdBy: uuid('created_by').references(() => authUsers.id, { onDelete: 'set null' }),
+		expiresAt: timestamp('expires_at', { withTimezone: true }),
+		acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+		createdAt
+	},
+	(t) => [index('workspace_invites_workspace_id_idx').on(t.workspaceId)]
+);
+
 export const projects = pgTable(
 	'projects',
 	{
@@ -211,6 +257,10 @@ export type Profile = typeof profiles.$inferSelect;
 export type NewProfile = typeof profiles.$inferInsert;
 export type Workspace = typeof workspaces.$inferSelect;
 export type NewWorkspace = typeof workspaces.$inferInsert;
+export type WorkspaceMember = typeof workspaceMembers.$inferSelect;
+export type NewWorkspaceMember = typeof workspaceMembers.$inferInsert;
+export type WorkspaceInvite = typeof workspaceInvites.$inferSelect;
+export type NewWorkspaceInvite = typeof workspaceInvites.$inferInsert;
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type Task = typeof tasks.$inferSelect;

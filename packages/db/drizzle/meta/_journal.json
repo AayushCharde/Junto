@@ -50,6 +50,13 @@
       "when": 1783951531590,
       "tag": "0006_issue_numbers_author",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783955131590,
+      "tag": "0007_workspace_members",
+      "breakpoints": true
     }
   ]
 }

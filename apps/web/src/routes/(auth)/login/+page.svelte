@@ -16,6 +16,7 @@
 	let submitting = $state(false);
 
 	const signedOut = $derived(page.url.searchParams.get('signedout') !== null);
+	const invited = $derived(page.url.searchParams.get('invite') !== null);
 
 	const features = [
 		{ icon: Command, label: '⌘K command palette & keyboard shortcuts' },
@@ -113,7 +114,13 @@
 					</p>
 				</div>
 			{:else}
-				{#if signedOut}
+				{#if invited}
+					<div
+						class="border-primary/30 bg-primary/10 text-foreground mb-5 rounded-lg border px-3.5 py-2.5 text-sm"
+					>
+						You've been invited to a workspace. Sign in to accept — we'll take you straight there.
+					</div>
+				{:else if signedOut}
 					<div
 						class="border-border bg-card text-muted-foreground mb-5 rounded-lg border px-3.5 py-2.5 text-sm"
 					>

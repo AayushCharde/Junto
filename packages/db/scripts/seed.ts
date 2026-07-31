@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { eq } from 'drizzle-orm';
 import { createDb } from '../src/client';
 import { createSupabaseAdmin } from '../src/supabase-admin';
-import { profiles, projects, workspaces } from '../src/schema';
+import { profiles, projects, workspaceMembers, workspaces } from '../src/schema';
 
 config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
@@ -81,6 +81,12 @@ async function main() {
 	} else {
 		console.log(`Using existing workspace (${workspaceId})`);
 	}
+
+	// Owner membership (Phase 2 — access control is membership-based).
+	await db
+		.insert(workspaceMembers)
+		.values({ workspaceId, userId, role: 'owner' })
+		.onConflictDoNothing();
 
 	// Default project.
 	const existingProjects = await db
