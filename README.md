@@ -12,7 +12,7 @@ search, realtime sync, and a PWA. 100% open-source, runs entirely on free tiers.
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase&logoColor=white)](https://supabase.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![MCP](https://img.shields.io/badge/MCP-Claude_%26_Cursor-6366f1)](#mcp--connect-claude--cursor)
-[![License: MIT](https://img.shields.io/badge/License-MIT-a1a1aa)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-a1a1aa)](LICENSE)
 
 **[Live demo](https://junto-web.junto-work.workers.dev)** · [Quick start](#quick-start) · [Architecture](#architecture) · [Connect Claude](#mcp--connect-claude--cursor)
 
@@ -177,4 +177,4 @@ works everywhere. **Semantic search** uses `pgvector` + a local Ollama (`nomic-e
 
 ## License
 
-[MIT](LICENSE) © Aayush Charde
+[GPL-3.0](LICENSE) © Aayush Charde
