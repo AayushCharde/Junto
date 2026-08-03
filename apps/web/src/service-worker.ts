@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /// <reference types="@sveltejs/kit" />
 /// <reference no-default-lib="true" />
 /// <reference lib="esnext" />

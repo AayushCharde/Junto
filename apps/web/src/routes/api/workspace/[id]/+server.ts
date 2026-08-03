@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 import { error, json } from '@sveltejs/kit';
 import { updateWorkspaceSchema } from '@junto/core';
 import { isWorkspaceOwner, updateWorkspace } from '@junto/db';

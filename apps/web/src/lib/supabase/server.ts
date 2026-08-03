@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 import { createServerClient } from '@supabase/ssr';
 import { env } from '$env/dynamic/public';
 import type { RequestEvent } from '@sveltejs/kit';

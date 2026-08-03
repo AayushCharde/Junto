@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Backfills task embeddings for semantic search (Phase 7). Reads every task,
  * embeds "title + description" with a local Ollama, and upserts into the

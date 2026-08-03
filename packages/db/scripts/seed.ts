@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Seeds one default user + workspace + project so the tracker is usable in the
  * pre-auth phases (Phase 0/1). Idempotent: safe to run repeatedly.

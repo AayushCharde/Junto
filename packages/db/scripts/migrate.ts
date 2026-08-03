@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Applies pending Drizzle migrations to the database in DATABASE_URL.
  * Run with: pnpm db:migrate

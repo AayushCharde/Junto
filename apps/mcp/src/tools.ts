@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Junto MCP tools. Each tool reuses the shared Zod schemas (@junto/core) and
  * data-access functions (@junto/db) so the MCP surface can never drift from the

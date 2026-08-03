@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Aayush Charde -->
 <script lang="ts">
 	// Junto mark — "Huddle": three people (emerald / cyan / blue) standing
 	// together, the middle one stepping forward. Bare mark, no tile. Colors are

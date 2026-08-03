@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /** Helpers for the `due_date` (YYYY-MM-DD) field. */
 
 function atMidnight(dateStr: string): Date {

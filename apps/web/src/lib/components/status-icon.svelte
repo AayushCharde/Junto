@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Aayush Charde -->
 <script lang="ts">
 	import type { TaskStatus } from '@junto/core';
 	import { STATUS_COLOR } from '$lib/tracker-meta';
