@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Service-role Supabase client factory. Bypasses RLS — use only in trusted
  * server contexts (seed script, and later the MCP Worker, which must manually

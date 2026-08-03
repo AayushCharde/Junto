@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 import type { TaskPriority, TaskStatus } from '@junto/core';
 
 /** Canonical status colors (hex) — used by the status icon and the distribution bar. */

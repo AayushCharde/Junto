@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Local-embedding helpers for semantic search (Phase 7). Junto embeds text with
  * a local Ollama instance — no cloud AI, no keys, matching the "100% free"

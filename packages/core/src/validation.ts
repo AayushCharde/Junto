@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Zod schemas for validating inputs at every boundary (SvelteKit endpoints now,
  * MCP tools in Phase 6). Shared so the web app and MCP server validate identically.

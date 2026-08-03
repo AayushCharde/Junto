@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Drizzle client factory. Both the SvelteKit app and the MCP Worker create a
  * client per request from their platform's `DATABASE_URL` secret.

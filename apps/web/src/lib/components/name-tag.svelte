@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Aayush Charde -->
 <script lang="ts">
 	// A small assignee "name tag": initials avatar + optional name. When there's
 	// no assignee it renders a dashed placeholder.

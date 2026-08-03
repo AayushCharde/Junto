@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Task/project data access. Shared by the web app (Phase 1) and the MCP server
  * (Phase 6) so the two can never drift on how tasks are created or updated.

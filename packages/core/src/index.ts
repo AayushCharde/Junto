@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * @junto/core — shared types and (from Phase 1 onward) task business logic that
  * is reused by both `apps/web` and `apps/mcp` so behavior can never diverge.

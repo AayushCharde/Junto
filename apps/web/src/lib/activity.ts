@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /** Formatting helpers for the comments + activity feed (Phase 4). */
 
 import { TASK_STATUS_LABELS, isTaskStatus, type ActivityAction } from '@junto/core';

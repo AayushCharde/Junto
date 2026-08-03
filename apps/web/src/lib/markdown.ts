@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Render user-authored task descriptions as sanitized HTML. Markdown → HTML via
  * `marked`, then scrubbed with DOMPurify. DOMPurify needs a DOM, so on the server

@@ -1,0 +1,45 @@
+name: Supabase keep-alive
+
+# Free-tier Supabase projects pause after ~a week of inactivity, which takes the
+# whole app (and MCP server) offline. This workflow makes one lightweight request
+# to the project every day so it always counts as "active".
+#
+# Setup (once): add two repository secrets under
+#   Settings → Secrets and variables → Actions → New repository secret
+#     SUPABASE_URL       e.g. https://<ref>.supabase.co   (your PUBLIC_SUPABASE_URL)
+#     SUPABASE_ANON_KEY  the anon public key
+# Then run it once manually from the Actions tab to confirm it's green.
+
+on:
+  schedule:
+    - cron: '17 7 * * *' # daily ~07:17 UTC (off the top-of-hour rush)
+  workflow_dispatch: {}
+
+# Don't pile up runs if one is slow.
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase (keeps the project from pausing)
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "::error::Set the SUPABASE_URL and SUPABASE_ANON_KEY repository secrets."
+            exit 1
+          fi
+          # A real table read (RLS returns an empty set for anon — that's fine;
+          # the request still hits Postgres and counts as activity).
+          code=$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' \
+            "${URL%/}/rest/v1/projects?select=id&limit=1" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          echo "Supabase REST responded: $code"
+          case "$code" in
+            200|206) echo "Project is awake." ;;
+            *) echo "::error::Unexpected status $code — the project may be paused or the secrets are wrong."; exit 1 ;;
+          esac

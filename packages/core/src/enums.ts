@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * Shared domain enums used by the database schema, the web app, and the MCP
  * server. Keeping these in one place means the UI, the API, and the MCP tools

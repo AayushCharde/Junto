@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Aayush Charde
+
 /**
  * @junto/db — shared Drizzle schema, client factories, and migrations.
  * Imported by both `apps/web` and (from Phase 6) `apps/mcp`.
